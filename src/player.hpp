@@ -9,6 +9,8 @@
 
 #include <ArduinoJson.h>
 
+#include <FastLED.h>
+
 #include <memory>
 #include <vector>
 
@@ -21,7 +23,8 @@
 #include "volume_widget.hpp"
 #include "sleep_timer_widget.hpp"
 
-#define FORCE_MONO
+#define RCA_MODULE
+#define M5GO_BOTTOM
 
 namespace singsang
 {
@@ -52,6 +55,8 @@ public:
 
     void toggleSleepTimer();
 
+    void updateSpeaker();
+
 private:
     void handleInactivityTimeout();
     void handleTouchEvents();
@@ -67,6 +72,8 @@ private:
 
     Audio m_audio{};
 
+    CRGB leds[10];
+
     int                 m_currentVolume{8};
     int                 m_activeSongIdx{0};
     unsigned int        m_turnOffAfterInactiveForMilliSec{5 * 60 * 1000};
@@ -74,6 +81,7 @@ private:
     std::vector<String> m_songFiles{};
     bool                m_isRunning{true};
     unsigned int        m_sleepMode{0};
+    unsigned int        m_outputMode{0};
 
     CBatteryWidget       m_batteryWidget;
     CFileSelectionWidget m_fileSelectionWidget;

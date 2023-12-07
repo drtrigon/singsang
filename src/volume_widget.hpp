@@ -22,6 +22,15 @@ public:
         }
     }
 
+    void setMode(unsigned int f_newOutputMode)
+    {
+        if (f_newOutputMode != m_outputMode)
+        {
+            m_outputMode = f_newOutputMode;
+            draw(false);
+        }
+    }
+
     int getButton(TouchPoint_t f_point)
     {
 /*        if (!isTouched(f_point))
@@ -33,7 +42,11 @@ public:
 
     void draw(const bool updateOnly)
     {
-        const uint16_t color = M5.Lcd.color565(100, 100, 100);
+        //const uint16_t color = M5.Lcd.color565(100, 100, 100);
+        uint16_t color = M5.Lcd.color565(100, 100, 100);
+        if (m_outputMode == 1) {
+            color = M5.Lcd.color565(0, 0, 100);
+        }
 
         for (int volumeIdx = 0; volumeIdx < volumeIdxMax; volumeIdx++)
         {
@@ -55,6 +68,7 @@ public:
 
 private:
     int m_audioVolume;
+	unsigned int m_outputMode;
 };
 
 }  // namespace singsang

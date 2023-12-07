@@ -50,7 +50,8 @@ void CPlayer::initializeHardware()
 
     M5.Axp.SetLed(false);
     M5.Axp.SetLcdVoltage(1800);  // dimmed, nominal value is 2800
-    M5.Axp.SetSpkEnable(true);
+    //M5.Axp.SetSpkEnable(true);
+    updateSpeaker();
 
     if (!SPIFFS.begin()) {  // Start SPIFFS, return 1 on success.
         //M5.Lcd.setTextSize(2);  //Set the font size to 2.
@@ -59,14 +60,37 @@ void CPlayer::initializeHardware()
     }
 
     WiFi.mode(WIFI_OFF);
+
+#ifdef M5GO_BOTTOM
+    FastLED.addLeds<NEOPIXEL, 25>(leds, 10);  // GRB ordering is assumed, DATA_PIN=25, NUM_LEDS=10
+    //FastLED.setBrightness(64);
+    FastLED.setBrightness(1);
+/*    fill_solid(leds, 10, CRGB::Blue);
+    FastLED.show();
+    delay(400);
+    fill_solid(leds, 10, CRGB::Red);
+    FastLED.show();
+    delay(400);
+    fill_solid(leds, 10, CRGB::Green);
+    FastLED.show();
+    delay(300);*/
+	fill_rainbow(leds, 10, 0, 20);
+    FastLED.show();
+/*    delay(5000);
+    fill_gradient_RGB(leds, 0, CRGB::Blue, 9, CRGB::Green);
+    FastLED.show();
+    delay(5000);*/
+#endif
+
     delay(100);
 
+    // internal speaker (default)
     m_audio.setPinout(12, 0, 2);
-    m_audio.setVolume(m_currentVolume);
-#ifdef FORCE_MONO
-    m_audio.forceMono(true);
-	Serial.println("FORCE_MONO set");
+#ifdef RCA_MODULE
+    // RCA Module 13.2 (can be used at same time)
+    m_audio.setPinout(19, 0, 2);  // I2S_BCLK, I2S_LRC, I2S_DOUT
 #endif
+    m_audio.setVolume(m_currentVolume);
 
     populateMusicFileList();
 
@@ -201,11 +225,15 @@ void CPlayer::handleTouchEvents()
     if (m_volumeWidget.isTouched(touchPoint))
     {
         vibrate();
-		if (m_volumeWidget.getButton(touchPoint)) {
-			decreaseVolume();
-		} else {
-			increaseVolume();
-		}
+        if (m_volumeWidget.getButton(touchPoint)) {
+            if (m_currentVolume == 0) {
+                m_outputMode = (m_outputMode + 1) % 2;
+                updateSpeaker();
+            }
+            decreaseVolume();
+        } else {
+            increaseVolume();
+        }
     }
 
     if (m_progressWidget.isTouched(touchPoint))
@@ -359,6 +387,21 @@ void CPlayer::toggleSleepTimer()
     {
         m_sleepMode = millis();  // enable sleep mode
     }
+}
+
+void CPlayer::updateSpeaker()
+{
+    if (m_outputMode == 0) {
+        // internal speaker enabled, mono
+        M5.Axp.SetSpkEnable(true);
+        m_audio.forceMono(true);
+    } else {
+        // internal speaker disabled, stereo (for external mode)
+        M5.Axp.SetSpkEnable(false);
+        m_audio.forceMono(false);
+    }
+
+    m_volumeWidget.setMode(m_outputMode);
 }
 
 void CPlayer::vibrate()
