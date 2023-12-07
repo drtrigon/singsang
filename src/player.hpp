@@ -60,6 +60,7 @@ private:
     void vibrate();
     void loadConfiguration(const char *filename);
     void saveConfiguration(const char *filename);
+	void recordTEST();
 
     Audio m_audio{};
 
@@ -69,6 +70,7 @@ private:
     unsigned int        m_lastActivityTimestamp{0};
     std::vector<String> m_songFiles{};
     bool                m_isRunning{true};
+    unsigned int        m_sleepMode{0};
 
     CBatteryWidget       m_batteryWidget;
     CFileSelectionWidget m_fileSelectionWidget;

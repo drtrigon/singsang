@@ -10,8 +10,8 @@ void CPlayer::begin()
     initializeGui();
 
     // initialize Player (should be put into own method)
-	loadConfiguration("");
-	--m_activeSongIdx;  // we start using startNextSong() in loop()
+    loadConfiguration("");
+    --m_activeSongIdx;  // we start using startNextSong() in loop()
 }
 
 void CPlayer::loop()
@@ -24,9 +24,23 @@ void CPlayer::loop()
 
     handleInactivityTimeout();
 
+    // skip non-playable files
     if (m_isRunning) {
         if (!m_audio.isRunning()) {  // not playing e.g. due to not supported file format (hacky work-a-round)
 		    startNextSong();
+        }
+    }
+
+    // sleep fade-out timer (linear volume decrease, 1 step every 5 mins)
+    if (m_sleepMode) {
+        if ((millis() - m_sleepMode) >= (5 * 60 * 1000)) {
+			decreaseVolume();
+			m_sleepMode = millis();
+
+            if (m_currentVolume <= 0) {
+                pauseSong();      // will eventually trigger handleInactivityTimeout()
+				m_sleepMode = 0;  // disable sleep mode
+            }
         }
     }
 }
@@ -192,10 +206,12 @@ void CPlayer::handleTouchEvents()
         if ((0 <= touchPoint.x) && (touchPoint.x <= 100))         // BtnA
         {
             Serial.println("M5.BtnA");
+//            recordTEST();
         }
         else if ((105 <= touchPoint.x) && (touchPoint.x <= 205))  // BtnB
         {
             Serial.println("M5.BtnB");
+//            m_sleepMode = millis();  // enable sleep mode (disable with m_sleepMode=0)
         }
         else if ((210 <= touchPoint.x) && (touchPoint.x <= 310))  // BtnC
         {
@@ -349,36 +365,61 @@ void CPlayer::loadConfiguration(const char *filename)
 
 void CPlayer::saveConfiguration(const char *filename)
 {
-  // Delete existing file, otherwise the configuration is appended to the file
-  SPIFFS.remove("/status");
+    // Delete existing file, otherwise the configuration is appended to the file
+    SPIFFS.remove("/status");
 
-  // Open file for writing
-  File file = SPIFFS.open("/status", FILE_WRITE);
-  if (!file) {
-    Serial.println(F("Failed to create file"));
-    return;
-  }
+    // Open file for writing
+    File file = SPIFFS.open("/status", FILE_WRITE);
+    if (!file) {
+        Serial.println(F("Failed to create file"));
+        return;
+    }
 
-  // Allocate a temporary JsonDocument
-  // Don't forget to change the capacity to match your requirements.
-  // Use arduinojson.org/assistant to compute the capacity.
-  StaticJsonDocument<256> doc;
+    // Allocate a temporary JsonDocument
+    // Don't forget to change the capacity to match your requirements.
+    // Use arduinojson.org/assistant to compute the capacity.
+    StaticJsonDocument<256> doc;
 
-  // Set the values in the document
-  doc["sd_cardSize"] = SD.cardSize();
-  doc["sd_totalBytes"] = SD.totalBytes();
-  doc["sd_usedBytes"] = SD.usedBytes();
-  doc["m_activeSongIdx"] = m_activeSongIdx;
-  doc["m_currentVolume"] = m_currentVolume;
-  //doc["..."] = m_audio.getAudioCurrentTime();  // (store current playing position)
+    // Set the values in the document
+    doc["sd_cardSize"] = SD.cardSize();
+    doc["sd_totalBytes"] = SD.totalBytes();
+    doc["sd_usedBytes"] = SD.usedBytes();
+    doc["m_activeSongIdx"] = m_activeSongIdx;
+    doc["m_currentVolume"] = m_currentVolume;
+    //doc["..."] = m_audio.getAudioCurrentTime();  // (store current playing position)
 
-  // Serialize JSON to file
-  if (serializeJson(doc, file) == 0) {
-    Serial.println(F("Failed to write to file"));
-  }
+    // Serialize JSON to file
+    if (serializeJson(doc, file) == 0) {
+        Serial.println(F("Failed to write to file"));
+    }
 
-  // Close the file
-  file.close();
+    // Close the file
+    file.close();
+}
+
+void CPlayer::recordTEST() {  // see https://github.com/m5stack/M5Core2/blob/master/examples/Basics/record/record.ino
+    uint8_t microphonedata0[DATA_SIZE * 1];  // DATA_SIZE = 1024
+    int data_offset = 0;
+
+    SD.remove("/___aaa000.wav");
+	File file = SD.open("/___aaa000.wav", FILE_WRITE);
+    vibrate();
+    M5.Spk.InitI2SSpeakOrMic(MODE_MIC);  // ISSUE: seem to mess-up ESP32-audioI2S settings! look at source to figure out how to enable mic w/o issues
+    size_t byte_read;
+    while (1) {
+        i2s_read(Speak_I2S_NUMBER, (char *)(microphonedata0),
+                 DATA_SIZE, &byte_read, (100 / portTICK_RATE_MS));
+        file.write(microphonedata0, byte_read);
+        data_offset += byte_read;
+        if (M5.Touch.ispressed() != true) break;
+//        if ((data_offset >= (1024 * 1024 * 100)) || (M5.Touch.ispressed() != true)) break;
+    }
+    file.close();
+//    size_t bytes_written;
+    M5.Spk.InitI2SSpeakOrMic(MODE_SPK);
+//    i2s_write(Speak_I2S_NUMBER, microphonedata0, data_offset, &bytes_written,
+//              portMAX_DELAY);
+    m_audio.connecttoSD("/___aaa000.wav");
 }
 
 }  // namespace singsang

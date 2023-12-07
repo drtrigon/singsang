@@ -7,6 +7,9 @@ singsang::CPlayer player;
 void setup()
 {
     player.begin();
+
+/*    Serial.println("Recorder Test!");
+    Serial.println("Press Left Button to recording!");*/
 }
 
 void loop()
