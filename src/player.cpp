@@ -8,6 +8,17 @@ void CPlayer::begin()
 {
     initializeHardware();
     initializeGui();
+
+    // initialize Player (should be put into own method)
+	// hacky as int has size of 4 - should be using struct or json
+	// also store additional info to identify the SD and check whether its the same as last time
+    File status = SPIFFS.open("/status", FILE_READ);
+	if (status) {
+		m_activeSongIdx = int(status.read());  // hacky as int has size 4, works up to 255 only!
+
+        m_audio.connecttoSD(m_songFiles[m_activeSongIdx].c_str());
+	}
+    status.close();
 }
 
 void CPlayer::loop()
@@ -20,17 +31,16 @@ void CPlayer::loop()
 
     handleInactivityTimeout();
 
-    // * start next song if nothing is playing (auto-skips non-supported formats)
-    //   ! incompatible with inactivity detection or future pause/stop feature
-    //   ! needs status variable playing/stopped that holds actual requested state, currently it is hard-coded to "playing"
-    if (!m_audio.isRunning()) {  // not playing e.g. due to not supported file format
-		startNextSong();
-	}
+    if (m_isRunning) {
+        if (!m_audio.isRunning()) {  // not playing e.g. due to not supported file format (hacky work-a-round)
+		    startNextSong();
+        }
+    }
 }
 
 void CPlayer::initializeHardware()
 {
-    M5.begin();
+    M5.begin(true, true, true, false, kMBusModeOutput, false);  // SpeakerEnable = false
 
     M5.Axp.SetLed(false);
     M5.Axp.SetLcdVoltage(1800);  // dimmed, nominal value is 2800
@@ -46,7 +56,7 @@ void CPlayer::initializeHardware()
     delay(100);
 
     m_audio.setPinout(12, 0, 2);
-    m_audio.setVolume(0);
+    m_audio.setVolume(m_currentVolume);
 
     populateMusicFileList();
 
@@ -63,6 +73,8 @@ void CPlayer::initializeGui()
     m_batteryWidget.draw(false);
     m_fileSelectionWidget.draw(false);
     m_nextSongWidget.draw(false);
+    m_prevSongWidget.draw(false);
+    m_pauseSongWidget.draw(false);
     m_progressWidget.draw(false);
     m_volumeDisplayWidget.draw(false);
     m_volumeDownWidget.draw(false);
@@ -147,6 +159,18 @@ void CPlayer::handleTouchEvents()
         startNextSong();
     }
 
+    if (m_prevSongWidget.isTouched(touchPoint))
+    {
+        vibrate();
+        startPrevSong();
+    }
+
+    if (m_pauseSongWidget.isTouched(touchPoint))
+    {
+        vibrate();
+        pauseSong();
+    }
+
     if (m_volumeDownWidget.isTouched(touchPoint))
     {
         vibrate();
@@ -167,11 +191,7 @@ void CPlayer::startNextSong()
         return;
     }
 
-    m_activeSongIdx++;
-    if (m_activeSongIdx >= m_songFiles.size() || m_activeSongIdx < 0)
-    {
-        m_activeSongIdx = 0;
-    }
+    m_activeSongIdx = (m_activeSongIdx + 1) % m_songFiles.size();
 
     if (m_audio.isRunning())
     {
@@ -179,6 +199,38 @@ void CPlayer::startNextSong()
     }
 
     m_audio.connecttoSD(m_songFiles[m_activeSongIdx].c_str());
+
+    File status = SPIFFS.open("/status", FILE_WRITE);
+    status.write(char(m_activeSongIdx));  // hacky as int has size 4, works up to 255 only!
+    status.close();
+}
+
+void CPlayer::startPrevSong()
+{
+    if (m_songFiles.size() == 0)
+    {
+        return;
+    }
+
+    m_activeSongIdx = (m_activeSongIdx - 1) % m_songFiles.size();
+
+    if (m_audio.isRunning())
+    {
+        m_audio.stopSong();
+    }
+
+    m_audio.connecttoSD(m_songFiles[m_activeSongIdx].c_str());
+
+    File status = SPIFFS.open("/status", FILE_WRITE);
+    status.write(char(m_activeSongIdx));  // hacky as int has size 4, works up to 255 only!
+    status.close();
+}
+
+void CPlayer::pauseSong()
+{
+    m_audio.pauseResume();
+
+    m_isRunning = m_audio.isRunning();
 }
 
 void CPlayer::updateGui()

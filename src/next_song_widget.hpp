@@ -8,7 +8,7 @@ namespace singsang
 class CNextSongWidget : public CBaseWidget
 {
 public:
-    CNextSongWidget() : CBaseWidget(270, 160, 40, 40) {}
+    CNextSongWidget() : CBaseWidget(270, 200, 40, 40) {}
 
     void update() {}
 

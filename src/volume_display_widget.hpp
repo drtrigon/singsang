@@ -8,7 +8,7 @@ namespace singsang
 class CVolumeDisplayWidget : public CBaseWidget
 {
 public:
-    CVolumeDisplayWidget() : CBaseWidget(10, 80, 40, 80) {}
+    CVolumeDisplayWidget() : CBaseWidget(10, 40, 40, 80) {}
 
     void update(const int f_newAudioVolume)
     {

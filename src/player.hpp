@@ -13,6 +13,8 @@
 #include "battery_widget.hpp"
 #include "file_selection_widget.hpp"
 #include "next_song_widget.hpp"
+#include "prev_song_widget.hpp"
+#include "pause_song_widget.hpp"
 #include "progress_widget.hpp"
 #include "volume_display_widget.hpp"
 #include "volume_down_widget.hpp"
@@ -33,6 +35,10 @@ public:
 
     void startNextSong();
 
+    void startPrevSong();
+
+    void pauseSong();
+
     void updateVolume(int f_deltaVolume);
 
     void increaseVolume();
@@ -51,15 +57,18 @@ private:
 
     Audio m_audio{};
 
-    int                 m_currentVolume{0};
+    int                 m_currentVolume{8};
     int                 m_activeSongIdx{-1};
     unsigned int        m_turnOffAfterInactiveForMilliSec{5 * 60 * 1000};
     unsigned int        m_lastActivityTimestamp{0};
     std::vector<String> m_songFiles{};
+    bool                m_isRunning{true};
 
     CBatteryWidget       m_batteryWidget;
     CFileSelectionWidget m_fileSelectionWidget;
     CNextSongWidget      m_nextSongWidget;
+    CPrevSongWidget      m_prevSongWidget;
+    CPauseSongWidget     m_pauseSongWidget;
     CProgressWidget      m_progressWidget;
     CVolumeDisplayWidget m_volumeDisplayWidget;
     CVolumeDownWidget    m_volumeDownWidget;
