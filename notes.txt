@@ -1,0 +1,332 @@
+
+Instead of Arduino IDE and ESP32-audioI2S we could also use MicroPython to play wav; https://www.hackster.io/lukasmaximus89/play-wav-files-on-your-m5stack-3bee7e .
+
+--- setup arduino IDE for m5stack ---
+arduino ide 2 as zip (portable): https://www.arduino.cc/en/software/ (2.1.1)
+(may be use older IDE 1 instead, as it will be needed for SPIFFS anyway - see below)
+
+preferences; add to the Additional Development Board Manager: https://m5stack.oss-cn-shenzhen.aliyuncs.com/resource/arduino/package_m5stack_index.json
+board manager; "M5Stack" (2.0.7)
+
+install driver: https://docs.m5stack.com/en/quick_start/core2/arduino (CH9102)
+
+(board to select: "M5Stack-Core2")
+
+--- orig ---
+(compiles but does not work, see new v0)
+
+download (as zip): https://github.com/maaadc/singsang
+                      unpack and rename folder to "singsang"
+                   https://github.com/schreibfaul1/ESP32-audioI2S/tree/3ae13533c528bb2f45b41f991f83431f0c9afc92 (ESP32-audioI2S @ 3ae1353)
+                      unpack to Dokumente\Arduino\libraries\ESP32-audioI2S
+                   https://github.com/m5stack/M5Core2/tree/1f428627a4c0c0002ad68517e217e5f5bb511dfe (M5Core2 @ 1f42862 also availbale in lib manager)
+                      unpack to Dokumente\Arduino\libraries\M5Core2
+
+sd card: /music -> put mp3 files into this folder
+         /media -> put content of /media from repo into this
+
+--- new v0 ---
+(compiles and does work, use as starting point for improvements, see below)
+
+ESP32-audioI2S: .../Arduino/libraries/ESP32-audioI2S/src/Audio.cpp line 144 set
+                m_i2s_config.fixed_mclk           = 0;
+                see https://www.esp32.com/viewtopic.php?t=27597
+
+singsang: .../src/player.cpp line 77 set
+          m_songFiles.push_back(entry.path());
+
+--- new v1 ---
+changes: * support for recursive file listing
+         * support more audio formats; aac, flac, mp3, opus, vorbis (ogg/oga), wav (use most recent ESP32-audioI2S library)
+           see https://github.com/schreibfaul1/ESP32-audioI2S/tree/master/src
+
+--- new v2 ---
+changes: * store /media folder content in SPIFFS (no need for /media folder on SD anymore)
+           see https://randomnerdtutorials.com/install-esp32-filesystem-uploader-arduino-ide/ (also https://forum.m5stack.com/topic/1590/esp32-and-the-spiffs-file-system)
+         * whole SD card used for sound no need of using /music directory anymore (however it can be used optionally)
+         * start next song if nothing is playing (auto-skips non-supported formats)
+           ! incompatible with inactivity detection or future pause/stop feature
+           ! needs status variable playing/stopped that holds actual requested state, currently it is hard-coded to "playing"
+
+how to upload data to SPIFFS (media; logos and icons for GUI):
+   install arduino ide (1) from zip (portable): https://www.arduino.cc/en/software#legacy-ide-18x (also https://forum.arduino.cc/t/ide-2-1-and-spiffs/1129840/3)
+
+   (may be add Additional Development Board Manager in preferences like in IDE 2 before)
+   restart, then the IDE 1 and 2 should use same configs/libs/boards and M5Stack Core 2 should become available and can be selected - also select the port
+
+   copy ESP32FS tool to Dokumente\Arduino\tools: https://randomnerdtutorials.com/install-esp32-filesystem-uploader-arduino-ide/ (also https://github.com/me-no-dev/arduino-esp32fs-plugin/releases/)
+
+   open singsang sketch, then "Tools > ESP32 Sketch Data Upload" this will upload all content of /data within the sketch directory to SPIFFS (basically the same as the /media directory)
+
+sd card: can be setup like for dogbox as required, no need for /music or /media folder anymore
+
+--- new v3 ---
+changes: * use most recent M5Core2 library
+           see https://github.com/m5stack/M5Core2/releases/tag/0.1.6
+           see https://github.com/schreibfaul1/ESP32-audioI2S/issues/410 needs SpeakerEnable=false in M5.begin(...)
+         * fixed bat status
+         * enhanced GUI; add prev, add play/pause, re-aranged other widgets to free space
+         * store index of song played last to resume on power-on
+           ! hack and works only upt to 255 songs (just 1 byte of 4 byte int is stored)
+           ! missing is recognition whether it is the same SD
+         * default volume 8 (instead of 0)
+
+libraries:
+   M5Core2 (0.1.6/cb65d23) can be installed by Library Manager (deps do not need to be installed)
+   ESP32-audioI2S (c612a07, newer than 3.0.0/c395d0f) needs to be manually installed
+
+--- new v4 ---
+changes: * volume; bigger range, smaller steps, compact widget (display is button at same time)
+           ! alternatively do not use boxes but shadows in a darker color with exact same dimension as bar itself
+         * enhanced GUI; add playback position selction on progress bar
+           ! may be later also add fast forward/reverse (seek), e.g. using more buttons or IMU
+           ! may be for progress bar use M5.Lcd.progressBar instead of M5.Lcd.drawRoundRect and M5.Lcd.fillRoundRect
+         * option to enable force mono playback during build
+
+--- new v5 ---
+changes: * enable access to 3 buttons below display (use M5.Touch as M5.BtnA.read() does not work)
+           ! option to e.g. use A and B for multipage GUI
+         * store index of song played last as json to SPIFFS
+           * identify SD and apply last index to correct SD
+             ! consider storing config for more than one SD - but how to limit data size?
+           * also store last volume
+             ! however always use safe low default volume
+           ! having a callback/event/interrupt on power press would allow to store config state at power-off only
+           ! storing actual playing position is more complex and costly (needs timer e.g. 1s or power-off method)
+             * see https://github.com/m5stack/M5Core2/issues/100 ("No detection of power button press · Issue #100 · m5stack/M5Core2 · GitHub")
+             * power button press is not suficient, what happens when SD gets removed while playing (temp. store until power button?)
+               what happens when bat gets empty? -> timer might be only general solution, may be combined with power button detection
+           * see also https://github.com/vshymanskyy/Preferences (by default does not use SPIFFS but flash)
+
+--- new v6 ---
+changes: * sleep fade-out mode ("Einschlafmodus"); linear volume decrease until 0, then pause and last goto sleep mode
+           ! needs to be assigned to a button or widget for use
+         ! add test for recording, but settings distort ESP32-audioI2S playback, also wav writing should have headers, etc.
+           * see https://github.com/m5stack/M5Core2/blob/master/examples/Basics/record/record.ino
+           * see https://forum.arduino.cc/t/creating-a-wav-file-header/314260
+           * see https://www.instructables.com/Arduino-Mega-Audio-File-logging/
+           * see https://9to5tutorial.com/introduction-to-sd-audio-i-played-with-m5stack-to-play-generate-and-record-sound
+           * see .../Arduino/libraries/M5Core2/src/Speaker.cpp::Speaker::InitI2SSpeakOrMic and ESP-audioI2S I2S init part
+
+--- new v7 ---
+changes: * updated icons and added new ones (e.g. sleep, record, repeat)
+         * play button made toggle play/pause
+         * sleep fade-out mode (timer) assigned to toggle button
+           ! consider not allowing to disable (just by reset) in order to be "baby/children-proof"
+           ! consider locking ALL controls (by disabling handleTouchEvents())
+         * load and display "/logo.jpg" from SD if existent, needs to be 200 x 200 px
+           ! loading images from sound file tag included as mentioned in README.md seems not to be implemented (yet)
+
+--- new v8 ---
+changes: * add external output mode for RCA Module 13.2
+           * internal speaker and RCA active at same time; disable speaker by pressing volume down when having 0 already
+           * see https://github.com/m5stack/M5Unified and https://shop.m5stack.com/products/rca-audio-video-composite-module-13-2
+             RCA Audio/Video Composite Module 13.2, $11.95
+           * see https://docs.m5stack.com/en/module/RCA%20Module%2013.2
+         * mono auto selection when using internal speaker
+         * add basic support for M5GO Bottom RGB LED's by displaying a rainbow
+           * see https://docs.m5stack.com/en/base/m5go_bottom2 and https://shop.m5stack.com/products/m5go-battery-bottom2-for-core2-only
+             M5GO Battery Bottom2 (for Core2 only), SKU: A014-C, $13.50 (+ Charging Base)
+           * see https://github.com/m5stack/M5-ProductExampleCodes/tree/master/Base/M5GO_BOTTOM2   (contains FFT example code)
+           * see https://github.com/FastLED/FastLED/tree/master/examples
+           ! try to implement an FFT, volume, random noise, etc. pattern display
+
+--- new v9 ---
+changes: * when going to sleep do PowerOff instead of DeepSleep (uses less bat and restarts with power button instead of reset button)
+         * add night light mode with RGB selector (color wheel)
+           * see https://www.hackster.io/Slartibartfass/night-lamp-with-atom-lite-neopixel-strip-and-ir-remote-f674fd
+           * see https://shop.m5stack.com/products/sk6812-rgb-led-flex-strip and https://docs.m5stack.com/en/unit/neopixel
+           * while beeing on that page go to deep sleep instead of fully power off to keep LED on after inactivity timeout
+             ! alternative: add 3rd icon to sleep mode (bed with light/sun) for sleep mode that keeps LED on
+             ! may be also keep LED on on display off / lock page
+             ! may be also use RGB leds as volume indicator (for parents) or spectrum/FFT
+         * charging icon uses now AXP charge info instead of voltage
+         * charging current set to max
+           ! does this change anything?
+         * (temporary add mic test mode, not enabled - cf. new v6 above)
+
+--- new v10 ---
+changes: * add recording to wav file format (44 bytes header followed by raw format)
+           * see https://github.com/m5stack/M5Core2/blob/master/examples/Basics/record/record.ino
+           * see https://github.com/m5stack/M5-ProductExampleCodes/tree/master/Core/M5Core2/Arduino
+           * see https://github.com/m5stack/M5-ProductExampleCodes/blob/master/Core/M5Core2/Arduino/record/record.ino
+           * see https://stackoverflow.com/questions/28137559/can-someone-explain-wavwave-file-headers
+           * after recording playback is distorted, need to install the proper i2s driver again
+             * alternative is to restart the ESP to switch back to playback mode (more complex to implement, slower)
+           * play using connecttoSD
+             * alternative is own play fucntion as data is raw within wav
+             * fully integrated into current player GUI by adding recordings to end of playlist
+           ! may be add proper GUI (own page with buttons, status info and protect/kindersicherung)
+           ! playback of recording is very silent, may be amplify (gain, volume, multiply 16bit values by factor like 2 by using recast and bit shift)
+           * recording stored in directory "/rec"
+         * add "hörbert playlist" based on directories as playlists (use first 10 directories)
+           * store index of song played last for every playlist
+         * fixed reverse skip beyond first track
+
+--- new v11 ---
+changes: * improve handling of empty playlists/folders
+           ! folder containing non-playable files causes very long reaction times (close to freeze)
+         * press record button at least 3s (non-blocking keeps playing)
+           ! record button (A) always active - instead implement button widget on touch screen for recording
+           ! may be implement record lock by disabling record button if using other playlist then "/rec"
+           ! may be implement sd card record lock by disabling record if "/rec" folder is missing (do not create it)
+         * button A, B, C deadtime timeout by using vibrate() (150ms) instead of delay(500) (500ms)
+           * fixes/improves issue with skipping file when these buttons are use immediately after start of playback
+             (e.g. switching page from hörbert to default player)
+           ! may be add widget for A, B, C buttons - may be incl. timeout (not straight forward for record button)
+           ! may be add generic timer class to use for all timers and deadtime/timeouts implemented
+         ! may be add widget class for hörbert page (analog to colorwheel widget/page)
+         * color adopted to be better visible for volume widget in external output mode only
+         * missing SD card triggers power off
+           * avoid removing of SD card during recording!
+           ! may be try to detect new/inserted SD card and issue re-init or ESP.restart()
+             * https://forum.arduino.cc/t/runtime-remove-and-insert-a-sd-card/313386
+             * https://github.com/greiman/SdFat
+
+
+(--- new v12 ---)
+changes: * add gain by bit shifting for recorded data (4x)
+           ! suppress initial click by ommitting first few millisecs or everything until amplitude below given threshold
+         * voice messsage during startup if battery level is low
+           * https://ttsfree.com/text-to-speech/german#google_vignette (supports CH_DE, for EN also ffmpeg/lavfi possible)
+             * TT Server 2: 62. Germen (Switzerland) - CH, Leni, Voice Pitch 25%, Sprachgeschwindigkeit 0%
+             * audio-battery.mp3; "Die Batterie ist bald leer. Bitte aufladen." (mp3-output-ttsfree(dot)com.mp3)
+             * file copy in SPIFFS (max. 3.6MB in current setup - some used by configuration in "/status")
+           * Bündnerdeutsch (slowsoft): https://slang.slowsoft.ch/webslang/synthesis/deu
+             * audio-battery-GR.wav; "Die Batterie ist bald leer. Bitte aufladen." (audio.wav)
+           ! may be add beeps by using sequence (see rec_play); pause, i2s_write(sin(...)), resume (do not change i2s config)
+           ! may be colorize battery icons (low; red / ok; green / may be intermediate; yellow/orange)
+           ! may be add battery level message to startNextSong(), startPrevSong() before playback (how to loop()?)
+
+
+(--- new v13 ---)
+
+
+problem: knacken bei replay des ersten titels nach i2s driver install...?
+-> immer erstes playback nach 'new Audio()'
+-> 'updateVolume' nach 'initializeHardware' macht es schlimmer...?
+-> https://github.com/earlephilhower/ESP8266Audio/issues/406
+-> volume auf 0, dann wieder auf vorherigen wert setzen während start von playback...?
+
+use mic at same time as playback, could also avoid i2s re-config and thus "knacken" (siehe oben)
+-> https://github.com/schreibfaul1/ESP32-audioI2S/discussions/604
+
+
+versuchen espuino auf m5core2 zu portieren und dann dieses GUI inkl. nachtlicht zu mergen
+
+send to bluetooth speaker (sink) - is it also possible to send to multiple, say 2, 3, ... (more?) - also add simple menu for pairing
+
+build 3D case to print (incl. speaker)
+
+(  USB Module with MAX3421E
+  $13.95)
+(  https://stackoverflow.com/questions/50429714/how-to-read-a-flash-drive-with-the-max3421e-usb-host-module-built-in-an-arduino )
+
+  Bluetooth Amplifier DIY Kit, Home Stero Sound Amplifier Kits, DIY Speaker with Flash Light
+  https://www.tindie.com/products/icstation/diy-kit-bluetooth-speaker-with-led-flashing-light/
+  Sold By ICStation
+  $20.23
+
+  DIY Kit FM Radio Bluetooth Amplifier, LED Spectrum Bluetooth Audio Speaker 3W+3W, U-disk SD Card Music Player Remote Control
+  https://www.tindie.com/products/icstation/diy-kit-led-spectrum-fm-radio-bluetooth-amplifier/
+  Sold By ICStation
+  $21.99
+
+  weitere: https://www.tindie.com/products/icstation/diy-bluetooth-music-spectrum-speaker-kit-gy19288/
+           https://www.tindie.com/products/icstation/diy-bluetooth-speakers-audio-amplifier-kit/  (mono)
+
+  PAM8620 Power Amplifier Module. 15Wx2 Dual-channel Stereo Amplifier. DC 8V-26V Class D Digital Power Amplifier Board .Item ID: GY19183
+  https://www.tindie.com/products/icstation/pam8620-class-d-power-amplifier-15wx2-gy19183/
+  Sold By ICStation
+  $15.83
+
+  Fermion 3W Mini Audio Stereo Verstärker
+  https://www.bastelgarage.ch/fermion-3w-mini-audio-stereo-verstarker
+  Hersteller: DFRobot
+  Artikelnr.:  421925
+  8,90CHF
+
+  Lautsprecher 4Ohm 3W 50mm
+  https://www.bastelgarage.ch/lautsprecher-4ohm-3w-50mm
+  Hersteller: purecrea
+  Artikelnr.:  420549
+  11,00CHF
+
+  Sennheiser Kopfhörer funktionieren gut ohne Amp.: Android / Sennheiser Impedance: 32-54 Ohm
+  (Impedance von Kopfhörern hier messen! Was sind Werte und wie gut funktinieren sie?)
+  (mit I2S DAC chip datenblatt abgleichen, was Grenze sein könnte)
+
+(bluetooth...? source or sink or both?)
+(sink (speaker): https://github.com/un01s/m5speaker with fft https://github.com/ElectroMagus/M5-FFT and https://github.com/schreibfaul1/ESP32-audioI2S/issues/80)
+(https://www.pschatzmann.ch/home/2020/03/27/1255/)
+(https://github.com/pschatzmann/ESP32-A2DP - receiver & sender)
+(  https://github.com/pschatzmann/ESP32-A2DP/blob/main/examples/bt_music_sender/bt_music_sender.ino)
+(https://github.com/pschatzmann/arduino-audio-tools - more generic, has FFT, sound/tone generation (for beeps), ...)
+(https://www.pschatzmann.ch/home/2021/04/25/esp32-sound-processing-library/)
+(ESPuino uses ESP32-audioI2S together with bluetooth: https://forum.espuino.de/t/espuino-auf-dem-m5stack-gray-interner-dac/78 and https://forum.espuino.de/t/espuino-auf-dem-m5stack-gray-interner-dac/78)
+
+(https://github.com/schreibfaul1/ESP32-audioI2S/pull/371 - SD to BT)
+(  https://github.com/tueddy/BTSourceSD/blob/main/BTSourceSD.ino)
+(  https://github.com/tueddy/ESPuino/commit/61666ee3dcbc6a808503b7cab33b2949e794407a)
+(    https://github.com/biologist79/ESPuino/blob/master/src/AudioPlayer.cpp#L1217 resp. https://github.com/biologist79/ESPuino/blob/master/src/AudioPlayer.cpp#L1245 see "audio_process_i2s")
+(IN WORST CASE RESTART INTO BLUETOOTH MODE - SAME AS MIC AND SPEAKER CHANGE - AT LEAST 3 MODES; deafult player, mic, bluetooth ?)
+
+https://www.galaxus.ch/de/s1/product/ugreen-cm403-sender-empfaenger-bluetooth-audio-adapter-21139173
+https://www.galaxus.ch/de/s1/product/reach-bluetooth-adapteris-2-in-1-transmitter-receiver-bluetooth-audio-adapter-35870262
+https://www.galaxus.ch/de/s1/product/ugreen-bluetooth-50-aux-car-adapter-bluetooth-audio-adapter-20685838
+(https://www.galaxus.de/en/s4/product/blow-transmitter-bluetooth-car-stereo-accessories-21251146)
+
+
+put on github as fork
+optimize flash usage e.g. use more F(...) etc.
+
+(may be fork and build webradio, see https://github.com/bwbguard/M5Stack-Core2-MediaPlayer, ESP32-audioI2S examples, https://m5stack.hackster.io/tommyho/arduino-web-radio-player-c4cb23 -> Lea)
+(see https://github.com/schreibfaul1/ESP32-audioI2S/blob/master/examples/Simple_WiFi_Radio/Simple_WiFi_Radio_IR.ino)
+
+
+
+USB Module with MAX3421E
+SKU: M020
+$13.95
+https://shop.m5stack.com/products/usb-module
+
+Battery Module 13.2 (1500mAh)
+SKU: M120
+$10.50
+https://shop.m5stack.com/products/battery-module-13-2-1500mah
+
+Base AAA Battery Holder
+SKU: A122
+$8.50
+https://shop.m5stack.com/products/base-aaa-battery-holder
+
+Proto Module with Extension & Bus Socket
+SKU: M001
+$4.50
+https://shop.m5stack.com/products/proto-module
+
+
+--- similar projects ---
+ESPuino: https://github.com/biologist79/ESPuino
+         RFID, bluetooth (source + sink?), very sophisticated, no display, (bat ?)
+         ( https://github.com/biologist79/ESPuino/discussions/68 - fertige Leiterplatten / Bauteil-Kits ?)
+
+TonUINO: https://www.voss.earth/tonuino/  und  https://www.tonuino.de/TNG/  und  https://wiki.dfrobot.com/DFPlayer_Mini_SKU_DFR0299
+         Arduino + DFPlayer Mini (dfrobot), no bat, all-in-one-platine (https://www.leiterkartenpiraten.de/produkt/tonuino-all-in-one-plus-platine/)
+         ( https://www.heise.de/news/Tonuino-DIY-Musikbox-mit-RFID-Karten-und-Arduino-4155010.html )
+         ( https://www.leiterkartenpiraten.de/tonuino-all-in-one-plus-quick-start-guide/ )
+
+KidsMP3Player: https://github.com/ghmartin77/KidsMP3Player
+               https://www.mikrocontroller.net/topic/439485
+               (TonUINO Clon?)
+
+Phoniebox: https://phoniebox.de/
+           https://www.iphone-ticker.de/wochenend-projekt-kontaktlose-musikbox-fuer-kinder-123063/
+
+
+--- dropped ideas ---
+
+- add video? or make separate, see https://github.com/tobozo/M5Tube  (just a sequence of images - MJPEG)
+  -> M5Tube uses sequences of JPEG files MJPEG along with sound, this means all vids have to be converted to MJPEG first
+     and will be played a low framerate, 25-30 fps is possible at max needing some perfomance optimisations
+  -> not very attractive as it does not support common formats

@@ -7,16 +7,32 @@ The simple GUI is specifically designed for children, who are able to choose a s
 
 
 ## Features
-- [x] Mp3 playback from SD card with a simple GUI
-- [x] Add battery status indicator
+- [x] aac, flac, mp3, opus, vorbis (ogg/oga), wav playback from SD card with a simple GUI
+- [x] Recording to wav file format from internal microphone (never remove SD card while recording)
+- [x] Hörbert-style playlists based on directories (use first 10 directories)
+- [x] Add battery status indicator, including voice output (Swiss German)
+- [x] Resume last song played on power-on
 - [x] Timeout for touchscreen clicks to prevent multiple activations
-- [ ] Turn itself off, if it does not play for 5 minutes
+- [x] Turn itself off, if it does not play for 5 minutes
+- [x] Sleep mode with fade-out
+- [x] Display Album art, if "/logo.jpg" existent on SD, needs to be 200 x 200 px
+- [x] External stereo output mode for RCA Module 13.2 (can be selected using volume widget)
+- [x] Support for M5GO Bottom RGB LED's to be used as night light (or just for fun)
+- [ ] Always use safe low default volume
+- [ ] Use RGB leds as volume indicator (for parents) or spectrum/FFT
+- [ ] Reduce pops & clicks in beginning of playback
+- [ ] Support bluetooth output to headphones or speakers
 
+### More Features
+- support for recursive file listing
+- start next song if nothing is playing (auto-skips non-supported formats)
+- playback position selection on progress bar
+- identify SD and apply last index to correct SD
+- missing SD card triggers power off
+- for more information check commit summaries ...
 
 ## Considerations
-The player expects Mp3 files in the folder `/music` on the SD card.
-Album art is only displayed properly if it is embedded in the Mp3 file as Jpeg of size 400 x 400.
-Items in the media folder need to be placed in `/media` on the SD card.
+(Album art is only displayed properly if it is embedded in the Mp3 file as Jpeg of size 400 x 400.)
 
 
 ## Credit
