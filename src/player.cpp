@@ -10,6 +10,10 @@ void CPlayer::begin()
     populateMusicFileList();
     initializeGui();
 
+    // battery warning audio
+    if (((M5.Axp.GetBatVoltage() - 3.2) * 100) < 20)
+        m_audio->connecttoFS(SPIFFS, "audio-battery.mp3");
+
     // initialize Player (should be put into own method)
     loadConfiguration("/status");
     --m_activeSongIdx[m_activeSongIdxIdx];  // we start using startNextSong() in loop()
@@ -740,7 +744,7 @@ void CPlayer::rec_record(const char *filepath) {  // see https://github.com/m5st
 
     m_audio->stopSong();
 
-    uint8_t microphonedata0[DATA_SIZE * 1];  // DATA_SIZE = 1024 (must be multiple of 2 as data actually is 16 bit!)
+    uint16_t microphonedata0[DATA_SIZE/2 * 1];  // DATA_SIZE = 1024 (must be multiple of 2 as data actually is 16 bit!)
     int data_offset = 0;
 
 	File file = SD.open(filepath, FILE_WRITE);
@@ -754,7 +758,9 @@ void CPlayer::rec_record(const char *filepath) {  // see https://github.com/m5st
     while (1) {
         i2s_read(Speak_I2S_NUMBER, (char *)(microphonedata0),
                  DATA_SIZE, &byte_read, (100 / portTICK_RATE_MS));
-        file.write(microphonedata0, byte_read);
+        for (unsigned int i=0; i<(DATA_SIZE/2); ++i)  // apply gain
+            microphonedata0[i] <<= 2;                 // gain x4 (2 bits)
+        file.write((uint8_t*)microphonedata0, byte_read);  // may be use union instead of cast
         data_offset += byte_read;
         if (M5.Touch.ispressed() != true) break;  // may be also limit max. file size...?
     }
