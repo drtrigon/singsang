@@ -4,6 +4,7 @@
 #include <Audio.h>
 #include <M5Core2.h>
 #include <SD.h>
+#include <SPIFFS.h>
 #include <WiFi.h>
 
 #include <memory>

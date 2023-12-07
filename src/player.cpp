@@ -19,6 +19,13 @@ void CPlayer::loop()
     updateGui();
 
     handleInactivityTimeout();
+
+    // * start next song if nothing is playing (auto-skips non-supported formats)
+    //   ! incompatible with inactivity detection or future pause/stop feature
+    //   ! needs status variable playing/stopped that holds actual requested state, currently it is hard-coded to "playing"
+    if (!m_audio.isRunning()) {  // not playing e.g. due to not supported file format
+		startNextSong();
+	}
 }
 
 void CPlayer::initializeHardware()
@@ -28,6 +35,12 @@ void CPlayer::initializeHardware()
     M5.Axp.SetLed(false);
     M5.Axp.SetLcdVoltage(1800);  // dimmed, nominal value is 2800
     M5.Axp.SetSpkEnable(true);
+
+    if (!SPIFFS.begin()) {  // Start SPIFFS, return 1 on success.
+        //M5.Lcd.setTextSize(2);  //Set the font size to 2.
+        //M5.Lcd.println("SPIFFS Failed to Start.");
+        Serial.println("SPIFFS Failed to Start.");
+    }
 
     WiFi.mode(WIFI_OFF);
     delay(100);
@@ -45,7 +58,7 @@ void CPlayer::initializeGui()
     M5.Lcd.fillScreen(TFT_BLACK);
     M5.Lcd.setTextFont(2);
 
-    M5.Lcd.drawJpgFile(SD, "/media/logo.jpg", 60, 20, 200, 200);
+    M5.Lcd.drawJpgFile(SPIFFS, "/logo.jpg", 60, 20, 200, 200);
 
     m_batteryWidget.draw(false);
     m_fileSelectionWidget.draw(false);
@@ -89,7 +102,7 @@ void CPlayer::appendSDDirectory(File dir)
 
 void CPlayer::populateMusicFileList()
 {
-    File musicDir = SD.open("/music");
+    File musicDir = SD.open("/");
 
     appendSDDirectory(musicDir);
 

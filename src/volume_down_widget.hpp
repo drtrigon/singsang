@@ -12,7 +12,7 @@ public:
 
     void draw(const bool f_updateOnly)
     {
-        M5.Lcd.drawPngFile(SD, "/media/icon-volume-down.png", m_positionX,
+        M5.Lcd.drawPngFile(SPIFFS, "/icon-volume-down.png", m_positionX,
                            m_positionY, m_sizeX, m_sizeY);
     }
 };

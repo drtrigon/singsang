@@ -17,7 +17,7 @@ public:
         const bool isCharging = (M5.Axp.GetVinVoltage() > 3.F);
         if (isCharging)
         {
-            newIconPath = "/media/icon-battery-charging.png";
+            newIconPath = "/icon-battery-charging.png";
         }
         else
         {
@@ -25,19 +25,19 @@ public:
 
             if (batteryPower > 0.20)
             {
-                newIconPath = "/media/icon-battery-1.png";
+                newIconPath = "/icon-battery-1.png";
             }
             else if (batteryPower > 0.40)
             {
-                newIconPath = "/media/icon-battery-2.png";
+                newIconPath = "/icon-battery-2.png";
             }
             else if (batteryPower > 0.60)
             {
-                newIconPath = "/media/icon-battery-3.png";
+                newIconPath = "/icon-battery-3.png";
             }
             else if (batteryPower > 0.80)
             {
-                newIconPath = "/media/icon-battery-4.png";
+                newIconPath = "/icon-battery-4.png";
             }
         }
 
@@ -50,12 +50,12 @@ public:
 
     void draw(const bool updateOnly)
     {
-        M5.Lcd.drawPngFile(SD, m_currentIconPath.c_str(), m_positionX,
+        M5.Lcd.drawPngFile(SPIFFS, m_currentIconPath.c_str(), m_positionX,
                            m_positionY, m_sizeX, m_sizeY);
     }
 
 private:
-    String m_currentIconPath{"/media/icon-battery.png"};
+    String m_currentIconPath{"/icon-battery.png"};
 };
 
 }  // namespace singsang
