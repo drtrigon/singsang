@@ -7,6 +7,8 @@
 #include <SPIFFS.h>
 #include <WiFi.h>
 
+#include <ArduinoJson.h>
+
 #include <memory>
 #include <vector>
 
@@ -56,11 +58,13 @@ private:
     void populateMusicFileList();
     void updateGui();
     void vibrate();
+    void loadConfiguration(const char *filename);
+    void saveConfiguration(const char *filename);
 
     Audio m_audio{};
 
     int                 m_currentVolume{8};
-    int                 m_activeSongIdx{-1};
+    int                 m_activeSongIdx{0};
     unsigned int        m_turnOffAfterInactiveForMilliSec{5 * 60 * 1000};
     unsigned int        m_lastActivityTimestamp{0};
     std::vector<String> m_songFiles{};

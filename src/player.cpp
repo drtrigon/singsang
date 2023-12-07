@@ -10,19 +10,8 @@ void CPlayer::begin()
     initializeGui();
 
     // initialize Player (should be put into own method)
-	// hacky as int has size of 4 - should be using struct or json
-	// also store additional info to identify the SD and check whether its the same as last time
-	// also consider (re)storing state of volume and playback position within current file
-    File status = SPIFFS.open("/status", FILE_READ);
-	if (status) {
-		m_activeSongIdx = int(status.read());  // hacky as int has size 4, works up to 255 only!
-
-        m_audio.connecttoSD(m_songFiles[m_activeSongIdx].c_str());
-	}
-    status.close();
-    Serial.printf("SD Card Size: %lluMB\n", SD.cardSize() / (1024 * 1024));   // FUTURE: use to generate unique SD ID
-    Serial.printf("Total space: %lluMB\n", SD.totalBytes() / (1024 * 1024));  // FUTURE: use to generate unique SD ID
-    Serial.printf("Used space: %lluMB\n", SD.usedBytes() / (1024 * 1024));    // FUTURE: use to generate unique SD ID
+	loadConfiguration("");
+	--m_activeSongIdx;  // we start using startNextSong() in loop()
 }
 
 void CPlayer::loop()
@@ -153,10 +142,15 @@ void CPlayer::handleTouchEvents()
 {
     const auto touchPoint = M5.Touch.getPressPoint();
 
+    //Serial.print(M5.BtnA.read());
+    //Serial.print(M5.BtnB.read());
+    //Serial.println(M5.BtnC.read());
+	// not working, see also https://docs.m5stack.com/en/api/core2/button and https://github.com/m5stack/M5Core2/blob/master/examples/Basics/button/button.ino
+
     const bool isButtonPressed = (touchPoint.x > -1 && touchPoint.y > -1);
     if (!isButtonPressed)
     {
-        return;
+		return;
     }
 
     if (m_nextSongWidget.isTouched(touchPoint))
@@ -192,6 +186,22 @@ void CPlayer::handleTouchEvents()
         vibrate();
         setPosSong(m_progressWidget.getPosition(touchPoint));
     }
+
+    if (touchPoint.y >= 250)  // "capacitive" Buttons A, B, C below display
+    {
+        if ((0 <= touchPoint.x) && (touchPoint.x <= 100))         // BtnA
+        {
+            Serial.println("M5.BtnA");
+        }
+        else if ((105 <= touchPoint.x) && (touchPoint.x <= 205))  // BtnB
+        {
+            Serial.println("M5.BtnB");
+        }
+        else if ((210 <= touchPoint.x) && (touchPoint.x <= 310))  // BtnC
+        {
+            Serial.println("M5.BtnC");
+        }
+    }
 }
 
 void CPlayer::startNextSong()
@@ -210,9 +220,7 @@ void CPlayer::startNextSong()
 
     m_audio.connecttoSD(m_songFiles[m_activeSongIdx].c_str());
 
-    File status = SPIFFS.open("/status", FILE_WRITE);
-    status.write(char(m_activeSongIdx));  // hacky as int has size 4, works up to 255 only!
-    status.close();
+    saveConfiguration("");
 }
 
 void CPlayer::startPrevSong()
@@ -231,9 +239,7 @@ void CPlayer::startPrevSong()
 
     m_audio.connecttoSD(m_songFiles[m_activeSongIdx].c_str());
 
-    File status = SPIFFS.open("/status", FILE_WRITE);
-    status.write(char(m_activeSongIdx));  // hacky as int has size 4, works up to 255 only!
-    status.close();
+    saveConfiguration("");
 }
 
 void CPlayer::pauseSong()
@@ -309,6 +315,70 @@ void CPlayer::vibrate()
     M5.Axp.SetLDOEnable(3, true);
     delay(150);
     M5.Axp.SetLDOEnable(3, false);
+}
+
+void CPlayer::loadConfiguration(const char *filename)
+{
+    // Open file for reading
+    File file = SPIFFS.open("/status", FILE_READ);
+
+    // Allocate a temporary JsonDocument
+    // Don't forget to change the capacity to match your requirements.
+    // Use arduinojson.org/v6/assistant to compute the capacity.
+    StaticJsonDocument<512> doc;
+
+    // Deserialize the JSON document
+    DeserializationError error = deserializeJson(doc, file);
+    if (error)
+        Serial.println(F("Failed to read file, using default configuration"));
+
+    // Copy values from the JsonDocument to the Config
+    if ((doc["sd_cardSize"] == SD.cardSize()) &&
+        (doc["sd_totalBytes"] == SD.totalBytes()) &&
+        (doc["sd_usedBytes"] == SD.usedBytes()))
+	{
+        m_activeSongIdx = doc["m_activeSongIdx"] | m_activeSongIdx;
+        // we do not restore volume as environmental conditions might have changed
+		// instead we use always a safe low default to protect user
+        //m_currentVolume = doc["m_currentVolume"] | m_currentVolume;
+    }
+
+    // Close the file (Curiously, File's destructor doesn't close the file)
+    file.close();
+}
+
+void CPlayer::saveConfiguration(const char *filename)
+{
+  // Delete existing file, otherwise the configuration is appended to the file
+  SPIFFS.remove("/status");
+
+  // Open file for writing
+  File file = SPIFFS.open("/status", FILE_WRITE);
+  if (!file) {
+    Serial.println(F("Failed to create file"));
+    return;
+  }
+
+  // Allocate a temporary JsonDocument
+  // Don't forget to change the capacity to match your requirements.
+  // Use arduinojson.org/assistant to compute the capacity.
+  StaticJsonDocument<256> doc;
+
+  // Set the values in the document
+  doc["sd_cardSize"] = SD.cardSize();
+  doc["sd_totalBytes"] = SD.totalBytes();
+  doc["sd_usedBytes"] = SD.usedBytes();
+  doc["m_activeSongIdx"] = m_activeSongIdx;
+  doc["m_currentVolume"] = m_currentVolume;
+  //doc["..."] = m_audio.getAudioCurrentTime();  // (store current playing position)
+
+  // Serialize JSON to file
+  if (serializeJson(doc, file) == 0) {
+    Serial.println(F("Failed to write to file"));
+  }
+
+  // Close the file
+  file.close();
 }
 
 }  // namespace singsang
