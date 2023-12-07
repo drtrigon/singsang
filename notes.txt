@@ -12,6 +12,17 @@ install driver: https://docs.m5stack.com/en/quick_start/core2/arduino (CH9102)
 
 (board to select: "M5Stack-Core2")
 
+--- using git ---
+add github as mirror:
+  $ git remote set-url --add origin https://github.com/drtrigon/singsang
+  $ git remote -v
+  $ git pull && git push
+
+push tags:
+  $ git push origin --tags
+
+(use github token instead of password)
+
 --- orig ---
 (compiles but does not work, see new v0)
 
