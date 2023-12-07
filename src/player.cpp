@@ -12,6 +12,7 @@ void CPlayer::begin()
     // initialize Player (should be put into own method)
 	// hacky as int has size of 4 - should be using struct or json
 	// also store additional info to identify the SD and check whether its the same as last time
+	// also consider (re)storing state of volume and playback position within current file
     File status = SPIFFS.open("/status", FILE_READ);
 	if (status) {
 		m_activeSongIdx = int(status.read());  // hacky as int has size 4, works up to 255 only!
@@ -19,6 +20,9 @@ void CPlayer::begin()
         m_audio.connecttoSD(m_songFiles[m_activeSongIdx].c_str());
 	}
     status.close();
+    Serial.printf("SD Card Size: %lluMB\n", SD.cardSize() / (1024 * 1024));   // FUTURE: use to generate unique SD ID
+    Serial.printf("Total space: %lluMB\n", SD.totalBytes() / (1024 * 1024));  // FUTURE: use to generate unique SD ID
+    Serial.printf("Used space: %lluMB\n", SD.usedBytes() / (1024 * 1024));    // FUTURE: use to generate unique SD ID
 }
 
 void CPlayer::loop()
@@ -57,6 +61,10 @@ void CPlayer::initializeHardware()
 
     m_audio.setPinout(12, 0, 2);
     m_audio.setVolume(m_currentVolume);
+#ifdef FORCE_MONO
+    m_audio.forceMono(true);
+	Serial.println("FORCE_MONO set");
+#endif
 
     populateMusicFileList();
 
@@ -76,9 +84,7 @@ void CPlayer::initializeGui()
     m_prevSongWidget.draw(false);
     m_pauseSongWidget.draw(false);
     m_progressWidget.draw(false);
-    m_volumeDisplayWidget.draw(false);
-    m_volumeDownWidget.draw(false);
-    m_volumeUpWidget.draw(false);
+    m_volumeWidget.draw(false);
 }
 
 void CPlayer::appendSDDirectory(File dir)
@@ -171,16 +177,20 @@ void CPlayer::handleTouchEvents()
         pauseSong();
     }
 
-    if (m_volumeDownWidget.isTouched(touchPoint))
+    if (m_volumeWidget.isTouched(touchPoint))
     {
         vibrate();
-        decreaseVolume();
+		if (m_volumeWidget.getButton(touchPoint)) {
+			decreaseVolume();
+		} else {
+			increaseVolume();
+		}
     }
 
-    if (m_volumeUpWidget.isTouched(touchPoint))
+    if (m_progressWidget.isTouched(touchPoint))
     {
         vibrate();
-        increaseVolume();
+        setPosSong(m_progressWidget.getPosition(touchPoint));
     }
 }
 
@@ -233,6 +243,20 @@ void CPlayer::pauseSong()
     m_isRunning = m_audio.isRunning();
 }
 
+void CPlayer::setPosSong(float f_relPos)
+{
+    if (!m_audio.isRunning())
+    {
+		return;
+	}
+
+    m_audio.pauseResume();
+
+    m_audio.setAudioPlayPosition(f_relPos * m_audio.getAudioFileDuration());
+
+    m_audio.pauseResume();
+}
+
 void CPlayer::updateGui()
 {
     m_batteryWidget.update();
@@ -247,13 +271,13 @@ void CPlayer::updateGui()
 
     m_fileSelectionWidget.update(m_songFiles.size(), m_activeSongIdx);
 
-    m_volumeDisplayWidget.update(m_currentVolume);
+    m_volumeWidget.update(m_currentVolume);
 }
 
 void CPlayer::updateVolume(int f_deltaVolume)
 {
     constexpr int minVolume = 0;
-    constexpr int maxVolume = 16;
+    constexpr int maxVolume = 20;
 
     int newVolume = m_currentVolume + f_deltaVolume;
 
@@ -272,12 +296,12 @@ void CPlayer::updateVolume(int f_deltaVolume)
 
 void CPlayer::increaseVolume()
 {
-    updateVolume(+4);
+    updateVolume(+2);
 }
 
 void CPlayer::decreaseVolume()
 {
-    updateVolume(-4);
+    updateVolume(-2);
 }
 
 void CPlayer::vibrate()

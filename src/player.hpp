@@ -16,9 +16,9 @@
 #include "prev_song_widget.hpp"
 #include "pause_song_widget.hpp"
 #include "progress_widget.hpp"
-#include "volume_display_widget.hpp"
-#include "volume_down_widget.hpp"
-#include "volume_up_widget.hpp"
+#include "volume_widget.hpp"
+
+//#define FORCE_MONO
 
 namespace singsang
 {
@@ -38,6 +38,8 @@ public:
     void startPrevSong();
 
     void pauseSong();
+
+    void setPosSong(float f_relPos);
 
     void updateVolume(int f_deltaVolume);
 
@@ -70,9 +72,7 @@ private:
     CPrevSongWidget      m_prevSongWidget;
     CPauseSongWidget     m_pauseSongWidget;
     CProgressWidget      m_progressWidget;
-    CVolumeDisplayWidget m_volumeDisplayWidget;
-    CVolumeDownWidget    m_volumeDownWidget;
-    CVolumeUpWidget      m_volumeUpWidget;
+    CVolumeWidget        m_volumeWidget;
 };
 
 }  // namespace singsang

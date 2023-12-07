@@ -19,6 +19,15 @@ public:
         }
     }
 
+    float getPosition(TouchPoint_t f_point)
+    {
+/*        if (!isTouched(f_point))
+        {
+            return ...;
+        }*/
+        return float(f_point.x - m_positionX) / m_sizeX;
+    }
+
     void draw(const bool updateOnly)
     {
         const uint16_t color = M5.Lcd.color565(100, 100, 100);
