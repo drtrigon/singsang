@@ -56,30 +56,42 @@ void CPlayer::initializeGui()
     m_volumeUpWidget.draw(false);
 }
 
-void CPlayer::populateMusicFileList()
+void CPlayer::appendSDDirectory(File dir)
 {
-    File musicDir = SD.open("/music");
-
     bool nextFileFound;
     do
     {
         nextFileFound = false;
 
-        File entry = musicDir.openNextFile();
+        File entry = dir.openNextFile();
 
         if (entry)
         {
             nextFileFound = true;
 
-            const bool entryIsFile = (entry.size() > 0);
-            if (entryIsFile)
+            if (entry.isDirectory())
             {
-                m_songFiles.push_back(entry.path());
+				appendSDDirectory(entry);
+            }
+			else
+            {
+                const bool entryIsFile = (entry.size() > 0);
+                if (entryIsFile)
+                {
+                    m_songFiles.push_back(entry.path());
+                }
             }
 
             entry.close();
         }
     } while (nextFileFound);
+}
+
+void CPlayer::populateMusicFileList()
+{
+    File musicDir = SD.open("/music");
+
+    appendSDDirectory(musicDir);
 
     Serial.print("MusicFileList length: ");
     Serial.println(m_songFiles.size());
@@ -153,7 +165,7 @@ void CPlayer::startNextSong()
         m_audio.stopSong();
     }
 
-    m_audio.connecttoSD(m_songFiles[m_activeSongIdx]);
+    m_audio.connecttoSD(m_songFiles[m_activeSongIdx].c_str());
 }
 
 void CPlayer::updateGui()

@@ -43,6 +43,7 @@ private:
     void handleTouchEvents();
     void initializeGui();
     void initializeHardware();
+	void appendSDDirectory(File dir);
     void populateMusicFileList();
     void updateGui();
     void vibrate();
