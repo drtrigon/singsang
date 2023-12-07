@@ -56,8 +56,6 @@ public:
 
     void toggleSleepTimer();
 
-    void updateSpeaker();
-
 private:
     void handleInactivityTimeout();
     void handleTouchEvents();
@@ -67,10 +65,11 @@ private:
     void populateMusicFileList();
     void updateGui();
     void vibrate();
+    void updateSpeaker();
     void loadConfiguration(const char *filename);
     void saveConfiguration(const char *filename);
     void rec_record(const char *filepath);
-    void rec_play(const char *filepath);
+    //void rec_play(const char *filepath);
     void writeWavHeader(File wavFile, uint32_t NumSamples);
 
     Audio* m_audio = new Audio();
@@ -82,6 +81,7 @@ private:
     unsigned int        m_activeSongIdxIdx{11};     // defaults to "/" (all) playlist
     unsigned int        m_turnOffAfterInactiveForMilliSec{5 * 60 * 1000};
     unsigned int        m_lastActivityTimestamp{0};
+    unsigned int        m_lastRecordTouchTimestamp{0};
     std::vector<String> m_songFiles{};
     std::vector<String> m_songDirs{};
     unsigned int        m_songFilesSize{0};

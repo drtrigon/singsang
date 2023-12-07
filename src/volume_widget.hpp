@@ -45,7 +45,8 @@ public:
         //const uint16_t color = M5.Lcd.color565(100, 100, 100);
         uint16_t color = M5.Lcd.color565(100, 100, 100);
         if (m_outputMode == 1) {
-            color = M5.Lcd.color565(0, 0, 100);
+            color = M5.Lcd.color565(0, 0, 200);
+//            color = M5.Lcd.color565(0, 100, 100);
         }
 
         for (int volumeIdx = 0; volumeIdx < volumeIdxMax; volumeIdx++)

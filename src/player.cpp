@@ -11,12 +11,16 @@ void CPlayer::begin()
     initializeGui();
 
     // initialize Player (should be put into own method)
-    loadConfiguration("");
+    loadConfiguration("/status");
     --m_activeSongIdx[m_activeSongIdxIdx];  // we start using startNextSong() in loop()
 }
 
 void CPlayer::loop()
 {
+    if (!SD.exists("/")) {  // SD card removed
+        M5.Axp.PowerOff();  // power off alternatively use ESP.restart() after detection of SD card
+    }
+
     m_audio->loop();
 
     handleTouchEvents();
@@ -132,7 +136,7 @@ void CPlayer::initializeGui()
 		break;
 
       case 4:
-        // display off
+        // display off / lock
 
         M5.Axp.SetDCDC3(false);  // backlight off
 		break;
@@ -264,6 +268,7 @@ void CPlayer::handleTouchEvents()
     const bool isButtonPressed = (touchPoint.x > -1 && touchPoint.y > -1);
     if (!isButtonPressed)
     {
+        m_lastRecordTouchTimestamp = 0;
         return;
     }
 
@@ -302,6 +307,7 @@ void CPlayer::handleTouchEvents()
             m_songFiles.clear();
 
             appendSDDirectory(musicDir);
+			m_isRunning &= (m_songFiles.size() > 0);
             //m_activeSongIdx[m_activeSongIdxIdx] = -1;
             --m_activeSongIdx[m_activeSongIdxIdx];
 			startNextSong();
@@ -340,7 +346,7 @@ void CPlayer::handleTouchEvents()
 		break;
 
       case 4:
-        // display off
+        // display off / lock
 
 		break;
 
@@ -398,40 +404,48 @@ void CPlayer::handleTouchEvents()
         if ((0 <= touchPoint.x) && (touchPoint.x <= 100))         // BtnA
         {
             Serial.println("M5.BtnA");
-            vibrate();
-//            delay(500);  // touch dead-time hack (stops playing)
-            String rec_name;
-            for(unsigned int i=0; i<10000; ++i)
+            if (!m_lastRecordTouchTimestamp)
             {
-                rec_name = String("/rec/singsang") + String(i) + String(".wav");
-                if (!SD.exists(rec_name))
-                    break;
+                vibrate();
+                m_lastRecordTouchTimestamp = millis();
             }
-            rec_record(rec_name.c_str());
-            vibrate();
-            m_songFiles.push_back(rec_name);
-            m_activeSongIdx[m_activeSongIdxIdx] = m_songFiles.size() - 2;
-			++m_songFilesSize;  // total file number; playlist "/" (all)
-//            m_audio->setVolume(0);
-			startNextSong();
-//            m_audio->setVolume(m_currentVolume);
+            else if ((millis() - m_lastRecordTouchTimestamp) > (3 * 1000))  // nach 3s
+            {
+                m_lastRecordTouchTimestamp = 0;
+//                delay(500);  // touch dead-time hack (stops playing)
+                String rec_name;
+                for(unsigned int i=0; i<10000; ++i)
+                {
+                    rec_name = String("/rec/singsang") + String(i) + String(".wav");
+                    if (!SD.exists(rec_name))
+                        break;
+                }
+                rec_record(rec_name.c_str());
+                ++m_songFilesSize;  // total file number; playlist "/" (all)
+                vibrate();
+                m_songFiles.push_back(rec_name);
+                m_activeSongIdx[m_activeSongIdxIdx] = m_songFiles.size() - 2;
+//                m_audio->setVolume(0);
+                startNextSong();
+//                m_audio->setVolume(m_currentVolume);
+            }
         }
         else if ((105 <= touchPoint.x) && (touchPoint.x <= 205))  // BtnB
         {
             Serial.println("M5.BtnB");
-            vibrate();
-            delay(500);  // touch dead-time hack (stops playing)
+            vibrate();   // also touch dead-time of 150ms
+//            delay(500);  // touch dead-time hack (stops playing)
         }
         else if ((210 <= touchPoint.x) && (touchPoint.x <= 310))  // BtnC
         {
             Serial.println("M5.BtnC");
-            vibrate();
+            vibrate();   // also touch dead-time of 150ms
             ui_PageNumber = (ui_PageNumber + 1) % 5;
-            if ((1 < ui_PageNumber) && (ui_PageNumber < 3))  // skip pages until implemented
-                ui_PageNumber = 3;  // "
+            if (ui_PageNumber == 2)  // skip page until implemented
+                ++ui_PageNumber;     // "
             initializeGui();  // re-initialize the UI - hacky... also the switch cases...
             //delay(c_ColorWheelWidget.m_touchDeadTimeMilliSec);  // touch dead-time hack
-            delay(500);  // touch dead-time hack (stops playing)
+//            delay(500);  // touch dead-time hack (stops playing)
         }
     }
 
@@ -440,6 +454,11 @@ void CPlayer::handleTouchEvents()
 
 void CPlayer::startNextSong()
 {
+    if (m_audio->isRunning())
+    {
+        m_audio->stopSong();
+    }
+
     if (m_songFiles.size() == 0)
     {
         return;
@@ -447,18 +466,18 @@ void CPlayer::startNextSong()
 
     m_activeSongIdx[m_activeSongIdxIdx] = (m_activeSongIdx[m_activeSongIdxIdx] + 1) % m_songFiles.size();
 
+    m_audio->connecttoSD(m_songFiles[m_activeSongIdx[m_activeSongIdxIdx]].c_str());
+
+    saveConfiguration("/status");
+}
+
+void CPlayer::startPrevSong()
+{
     if (m_audio->isRunning())
     {
         m_audio->stopSong();
     }
 
-    m_audio->connecttoSD(m_songFiles[m_activeSongIdx[m_activeSongIdxIdx]].c_str());
-
-    saveConfiguration("");
-}
-
-void CPlayer::startPrevSong()
-{
     if (m_songFiles.size() == 0)
     {
         return;
@@ -466,18 +485,18 @@ void CPlayer::startPrevSong()
 
     m_activeSongIdx[m_activeSongIdxIdx] = (m_activeSongIdx[m_activeSongIdxIdx] + m_songFiles.size() - 1) % m_songFiles.size();  // mod does not work for negative numbers
 
-    if (m_audio->isRunning())
-    {
-        m_audio->stopSong();
-    }
-
     m_audio->connecttoSD(m_songFiles[m_activeSongIdx[m_activeSongIdxIdx]].c_str());
 
-    saveConfiguration("");
+    saveConfiguration("/status");
 }
 
 void CPlayer::pauseSong()
 {
+    if (m_songFiles.size() == 0)
+    {
+        return;
+    }
+
     m_audio->pauseResume();
 
     m_isRunning = m_audio->isRunning();
@@ -541,7 +560,7 @@ void CPlayer::updateGui()
 		break;
 
       case 4:
-        // display off
+        // display off / lock
 
 		break;
 
@@ -635,7 +654,7 @@ void CPlayer::vibrate()
 void CPlayer::loadConfiguration(const char *filename)
 {
     // Open file for reading
-    File file = SPIFFS.open("/status", FILE_READ);
+    File file = SPIFFS.open(filename, FILE_READ);
 
     // Allocate a temporary JsonDocument
     // Don't forget to change the capacity to match your requirements.
@@ -677,7 +696,7 @@ void CPlayer::saveConfiguration(const char *filename)
     SPIFFS.remove("/status");
 
     // Open file for writing
-    File file = SPIFFS.open("/status", FILE_WRITE);
+    File file = SPIFFS.open(filename, FILE_WRITE);
     if (!file) {
         Serial.println(F("Failed to create file"));
         return;
@@ -757,7 +776,7 @@ void CPlayer::rec_record(const char *filepath) {  // see https://github.com/m5st
     M5.Lcd.fillCircle(280, 80, 10, TFT_BLACK);
 }
 
-void CPlayer::rec_play(const char *filepath) {  // see https://github.com/m5stack/M5Core2/blob/master/examples/Basics/record/record.ino
+/*void CPlayer::rec_play(const char *filepath) {  // see https://github.com/m5stack/M5Core2/blob/master/examples/Basics/record/record.ino
     m_audio->stopSong();
 
     uint8_t microphonedata0[DATA_SIZE * 1];  // DATA_SIZE = 1024 (must be multiple of 2 as data actually is 16 bit!)
@@ -792,7 +811,7 @@ void CPlayer::rec_play(const char *filepath) {  // see https://github.com/m5stac
 // ACHTUNG MACHT EV. PROBLEME - EINZELNE BEFEHLE HERAUSNEHMEN...?!
     initializeHardware();
 //    updateVolume(0);
-}
+}*/
 
 void CPlayer::writeWavHeader(File wavFile, uint32_t NumSamples) {  // see https://stackoverflow.com/questions/66484763/how-to-convert-analog-input-readings-from-arduino-to-wav-from-sketch and http://soundfile.sapp.org/doc/WaveFormat/
     // alternative method to use enum; https://github.com/atomic14/esp32_sdcard_audio/blob/main/arduino-wav-sdcard/lib/wav_file/src/WAVFile.h
