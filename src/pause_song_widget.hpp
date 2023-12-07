@@ -10,7 +10,7 @@ class CPauseSongWidget : public CBaseWidget
 public:
     CPauseSongWidget() : CBaseWidget(270, 120, 40, 40) {}
 
-    void update(const int f_newIsRunning)
+    void update(const bool f_newIsRunning)
     {
         if (f_newIsRunning != m_isRunning)
         {
@@ -34,7 +34,7 @@ public:
     }
 
 private:
-    int m_isRunning;
+    bool m_isRunning;
 };
 
 }  // namespace singsang

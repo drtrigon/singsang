@@ -7,16 +7,17 @@ CPlayer::CPlayer() {}
 void CPlayer::begin()
 {
     initializeHardware();
+    populateMusicFileList();
     initializeGui();
 
     // initialize Player (should be put into own method)
     loadConfiguration("");
-    --m_activeSongIdx;  // we start using startNextSong() in loop()
+    --m_activeSongIdx[m_activeSongIdxIdx];  // we start using startNextSong() in loop()
 }
 
 void CPlayer::loop()
 {
-    m_audio.loop();
+    m_audio->loop();
 
     handleTouchEvents();
 
@@ -25,8 +26,8 @@ void CPlayer::loop()
     handleInactivityTimeout();
 
     // skip non-playable files
-    if (m_isRunning && (!m_audio.isRunning())) {  // not playing e.g. due to not supported file format (hacky work-a-round)
-// repeat could be done here by a simple --m_activeSongIdx
+    if (m_isRunning && (!m_audio->isRunning())) {  // not playing e.g. due to not supported file format (hacky work-a-round)
+// repeat could be done here by a simple --m_activeSongIdx[m_activeSongIdxIdx]
         startNextSong();
     }
 
@@ -42,6 +43,8 @@ void CPlayer::loop()
             }
         }
     }
+
+    // store current song position (which memory? SPIFFS? may be in given intervals of x secs only, e.g. every 10 secs or so and m_audio->isRunning()...?)
 }
 
 void CPlayer::initializeHardware()
@@ -90,14 +93,12 @@ void CPlayer::initializeHardware()
     delay(100);
 
     // internal speaker (default)
-    m_audio.setPinout(12, 0, 2);
+    m_audio->setPinout(12, 0, 2);
 #ifdef RCA_MODULE
     // RCA Module 13.2 (can be used at same time)
-    m_audio.setPinout(19, 0, 2);  // I2S_BCLK, I2S_LRC, I2S_DOUT
+    m_audio->setPinout(19, 0, 2);  // I2S_BCLK, I2S_LRC, I2S_DOUT
 #endif
-    m_audio.setVolume(m_currentVolume);
-
-    populateMusicFileList();
+    m_audio->setVolume(m_currentVolume);
 
     vibrate();
 }
@@ -110,12 +111,27 @@ void CPlayer::initializeGui()
   
     switch(ui_PageNumber) {
       case 1:
+        // playlists/hörbert
+
+        for (unsigned int i=0; i < m_songDirs.size(); ++i)
+        {
+            M5.Lcd.fillRect((i % 4) * 80, (i / 4) * 80, 80, 80, m_colors[i]);
+        }
+        M5.Lcd.fillRoundRect(2 * 80, 2 * 80, 80, 80, 10, m_colors[10]);  // "/rec"
+        M5.Lcd.fillRoundRect(3 * 80, 2 * 80, 80, 80, 10, m_colors[11]);  // "/" (all)
+		break;
+
+      /*case 2:
+        // record
+		break;*/
+
+      case 3:
         // color wheel
 
         c_ColorWheelWidget.draw(false);
 		break;
 
-      case 2:
+      case 4:
         // display off
 
         M5.Axp.SetDCDC3(false);  // backlight off
@@ -144,7 +160,7 @@ void CPlayer::initializeGui()
     }
 }
 
-void CPlayer::appendSDDirectory(File dir)
+void CPlayer::appendSDDirectory(File dir, const bool list_dir = false)
 {
     bool nextFileFound;
     do
@@ -159,12 +175,21 @@ void CPlayer::appendSDDirectory(File dir)
 
             if (entry.isDirectory())
             {
+                // add folder to playlist, if ...
+                // (limit to 10 here to save memory, otherwise
+                // could also be done later, e.g. in populateMusicFileList())
+                if ((list_dir) &&                                // ... enabled by list_dir switch
+				    (strncmp(entry.path(), "/rec" , 4) != 0) &&  // ... not "/rec"
+					(m_songDirs.size() < 10))                    // ... size < 10 (9 items + 1 added = 10 total)
+                {
+                    m_songDirs.push_back(entry.path());
+                }
+
 				appendSDDirectory(entry);
             }
 			else
             {
-                const bool entryIsFile = (entry.size() > 0);
-                if (entryIsFile)
+                if (entry.size() > 0)  // entryIsFile
                 {
                     m_songFiles.push_back(entry.path());
                 }
@@ -177,9 +202,17 @@ void CPlayer::appendSDDirectory(File dir)
 
 void CPlayer::populateMusicFileList()
 {
+    SD.mkdir("/rec");  // disable to enable locking of SD by not creating this folder manually
+
     File musicDir = SD.open("/");
 
-    appendSDDirectory(musicDir);
+    appendSDDirectory(musicDir, true);
+	m_songFilesSize = m_songFiles.size();  // count files in "/" (all) on SD
+
+#ifdef DEBUG
+    for(int i=0; i < m_songFiles.size(); ++i)
+        Serial.println(m_songFiles[i]);
+#endif
 
     Serial.print("MusicFileList length: ");
     Serial.println(m_songFiles.size());
@@ -187,7 +220,7 @@ void CPlayer::populateMusicFileList()
 
 void CPlayer::handleInactivityTimeout()
 {
-    if (m_audio.isRunning())
+    if (m_audio->isRunning())
     {
         m_lastActivityTimestamp = millis();
     }
@@ -200,8 +233,8 @@ void CPlayer::handleInactivityTimeout()
 
         if (isTimeoutReached)
         {
-            m_audio.stopSong();
-            if (ui_PageNumber == 1)    // color wheel (night light mode)
+            m_audio->stopSong();
+            if (ui_PageNumber == 3)    // color wheel (night light mode)
             {
                 M5.Axp.DeepSleep(0U);  // sleep (keeping RGB LEDs and other peripherie powered)
             }
@@ -236,6 +269,56 @@ void CPlayer::handleTouchEvents()
 
     switch(ui_PageNumber) {
       case 1:
+      {
+        // playlists/hörbert
+
+        File musicDir;
+        const unsigned int i = (touchPoint.y / 80) * 4 + (touchPoint.x / 80);
+        if (i < m_songDirs.size())  // always (size <= 10), due to limit in appendSDDirectory()
+        {
+            musicDir = SD.open(m_songDirs[i].c_str());
+        }
+        else if (i == 10)  // "/rec"
+        {
+            musicDir = SD.open("/rec");
+        }
+        else if (i == 11)  // "/" (all)
+        {
+            musicDir = SD.open("/");
+        }
+        //else
+        //{
+        //    break;
+        //}
+
+        if (musicDir)  // very similar to 'populateMusicFileList()' thus try to combine
+        {
+			vibrate();
+
+            m_activeSongIdxIdx = i;  // index is valid (in range and playlist/folder exists)
+
+            M5.Lcd.fillScreen(m_colors[m_activeSongIdxIdx]);  // overwrites UI
+
+            m_songFiles.clear();
+
+            appendSDDirectory(musicDir);
+            //m_activeSongIdx[m_activeSongIdxIdx] = -1;
+            --m_activeSongIdx[m_activeSongIdxIdx];
+			startNextSong();
+
+            initializeGui();  // re-initialize the UI
+
+            Serial.print("MusicFileList length: ");
+            Serial.println(m_songFiles.size());
+        }
+
+        break;
+      }
+      /*case 2:
+        // record
+		break;*/
+
+      case 3:
         // color wheel
 
         if (c_ColorWheelWidget.isTouched(touchPoint))  // if there is this widget only, this 'if-statement' could be removed
@@ -256,7 +339,7 @@ void CPlayer::handleTouchEvents()
 
 		break;
 
-      case 2:
+      case 4:
         // display off
 
 		break;
@@ -316,44 +399,43 @@ void CPlayer::handleTouchEvents()
         {
             Serial.println("M5.BtnA");
             vibrate();
-//            recordTEST();
-//            micTEST();
+//            delay(500);  // touch dead-time hack (stops playing)
+            String rec_name;
+            for(unsigned int i=0; i<10000; ++i)
+            {
+                rec_name = String("/rec/singsang") + String(i) + String(".wav");
+                if (!SD.exists(rec_name))
+                    break;
+            }
+            rec_record(rec_name.c_str());
+            vibrate();
+            m_songFiles.push_back(rec_name);
+            m_activeSongIdx[m_activeSongIdxIdx] = m_songFiles.size() - 2;
+			++m_songFilesSize;  // total file number; playlist "/" (all)
+//            m_audio->setVolume(0);
+			startNextSong();
+//            m_audio->setVolume(m_currentVolume);
         }
         else if ((105 <= touchPoint.x) && (touchPoint.x <= 205))  // BtnB
         {
             Serial.println("M5.BtnB");
             vibrate();
+            delay(500);  // touch dead-time hack (stops playing)
         }
         else if ((210 <= touchPoint.x) && (touchPoint.x <= 310))  // BtnC
         {
             Serial.println("M5.BtnC");
             vibrate();
-			ui_PageNumber = (ui_PageNumber + 1) % 3;
+            ui_PageNumber = (ui_PageNumber + 1) % 5;
+            if ((1 < ui_PageNumber) && (ui_PageNumber < 3))  // skip pages until implemented
+                ui_PageNumber = 3;  // "
             initializeGui();  // re-initialize the UI - hacky... also the switch cases...
             //delay(c_ColorWheelWidget.m_touchDeadTimeMilliSec);  // touch dead-time hack
-            delay(500);  // touch dead-time hack
+            delay(500);  // touch dead-time hack (stops playing)
         }
     }
 
-    Serial.printf("%i %i\n", touchPoint.x, touchPoint.y);
-/*    if (touchPoint.y >= 250)  // "capacitive" Buttons A, B, C below display
-    {
-		// actually you can set-up any number of buttons, e.g. 5 or more)
-        if ((0 <= touchPoint.x) && (touchPoint.x <= 100))         // BtnA
-        {
-            Serial.println("M5.BtnA");
-//            recordTEST();
-            micTEST();
-        }
-        else if ((105 <= touchPoint.x) && (touchPoint.x <= 205))  // BtnB
-        {
-            Serial.println("M5.BtnB");
-        }
-        else if ((210 <= touchPoint.x) && (touchPoint.x <= 310))  // BtnC
-        {
-            Serial.println("M5.BtnC");
-        }
-    }*/
+//    Serial.printf("%i %i\n", touchPoint.x, touchPoint.y);
 }
 
 void CPlayer::startNextSong()
@@ -363,14 +445,14 @@ void CPlayer::startNextSong()
         return;
     }
 
-    m_activeSongIdx = (m_activeSongIdx + 1) % m_songFiles.size();
+    m_activeSongIdx[m_activeSongIdxIdx] = (m_activeSongIdx[m_activeSongIdxIdx] + 1) % m_songFiles.size();
 
-    if (m_audio.isRunning())
+    if (m_audio->isRunning())
     {
-        m_audio.stopSong();
+        m_audio->stopSong();
     }
 
-    m_audio.connecttoSD(m_songFiles[m_activeSongIdx].c_str());
+    m_audio->connecttoSD(m_songFiles[m_activeSongIdx[m_activeSongIdxIdx]].c_str());
 
     saveConfiguration("");
 }
@@ -382,49 +464,83 @@ void CPlayer::startPrevSong()
         return;
     }
 
-    m_activeSongIdx = (m_activeSongIdx - 1) % m_songFiles.size();
+    m_activeSongIdx[m_activeSongIdxIdx] = (m_activeSongIdx[m_activeSongIdxIdx] + m_songFiles.size() - 1) % m_songFiles.size();  // mod does not work for negative numbers
 
-    if (m_audio.isRunning())
+    if (m_audio->isRunning())
     {
-        m_audio.stopSong();
+        m_audio->stopSong();
     }
 
-    m_audio.connecttoSD(m_songFiles[m_activeSongIdx].c_str());
+    m_audio->connecttoSD(m_songFiles[m_activeSongIdx[m_activeSongIdxIdx]].c_str());
 
     saveConfiguration("");
 }
 
 void CPlayer::pauseSong()
 {
-    m_audio.pauseResume();
+    m_audio->pauseResume();
 
-    m_isRunning = m_audio.isRunning();
+    m_isRunning = m_audio->isRunning();
 }
 
 void CPlayer::setPosSong(float f_relPos)
 {
-    if (!m_audio.isRunning())
+    if (!m_audio->isRunning())
     {
 		return;
 	}
 
-    m_audio.pauseResume();
+    m_audio->pauseResume();
 
-    m_audio.setAudioPlayPosition(f_relPos * m_audio.getAudioFileDuration());
+    m_audio->setAudioPlayPosition(f_relPos * m_audio->getAudioFileDuration());
 
-    m_audio.pauseResume();
+    m_audio->pauseResume();
 }
 
 void CPlayer::updateGui()
 {
     switch(ui_PageNumber) {
       case 1:
+        // playlists/hörbert
+
+// 320x240 unterteilen in 80er kacheln (ev. nur z.b. 76 von 2 bis 78 statt 0 bis 80 nahtlos aneinander)
+//   -> 4x3 raster sind 12 einträge
+// verwende playlist oder die ersten 12 verzeichnisse auf der sd karte
+// jeder knopf eine andere farbe (siehe hörbert)
+
+		break;
+
+      /*case 2:
+        // record
+
+// oberfläche ähnlich wie player ohne icon, stattdessen record button (grosser roter punkt), und ohne sleep mode
+// arbeitsverzeichnis ist nur /rec ordner
+// nach abspielen von aktuellem titel wird gestoppt
+// ausgabe auch via line out möglich? funktion analog zu add pin auch in M5 library?
+// rec; file index++ dann aufnehmen, play; akteullen file index abspielen, prev; file index--, next; file index++ (existent?)
+// when switching page to othe mode, restart esp, if playback was pause otherwise we are just skipping/blättern over the page (either make it the laste mode or store flag that tells us to got to page 3 color wheel)
+
+// - need to re-install i2s driver, this is done in Audio class constructor, how to re-call? (to use method below it needs to be a pointer OR put i2s driver install into own member func) / Modify the source? Issue a feature request? / compare i2s driver from M5 'InitI2SSpeakOrMic' with the one in the constructor from Audio class (ESP32-audioI2S), any compromise possible? (look at source to figure out how to enable mic w/o issues)
+// - alternatively as a hacky work-a-round just restart ESP to switch from record to replay mode again! may be use volatile mem instead of 'saveConfiguration'?
+// - when using ESP.restart(); to store setting use Preferences library, non-volatile mem or SPIFFS ('saveConfiguration')
+//     Preferences: https://community.m5stack.com/topic/1496/storing-settings-in-the-memory-of-the-core
+//     non-volatile: https://www.esp32.com/viewtopic.php?t=4931
+//     SPIFFS: 'saveConfiguration'
+    /*delete m_audio; //must do this if it already has been allocated memory!
+    m_audio = new Audio();
+    initializeHardware();*//*
+    saveConfiguration("");
+    ESP.restart();
+
+		break;*/
+
+      case 3:
         // color wheel
 
         //c_ColorWheelWidget.update();
 		break;
 
-      case 2:
+      case 4:
         // display off
 
 		break;
@@ -435,20 +551,20 @@ void CPlayer::updateGui()
         m_batteryWidget.update();
 
         int audioProgressPercentage = 0;
-        if (m_audio.isRunning() && m_audio.getAudioFileDuration() > 0)
+        if (m_audio->isRunning() && m_audio->getAudioFileDuration() > 0)
         {
-            audioProgressPercentage = 100. * m_audio.getAudioCurrentTime() /
-                                      m_audio.getAudioFileDuration();
+            audioProgressPercentage = 100. * m_audio->getAudioCurrentTime() /
+                                      m_audio->getAudioFileDuration();
         }
         m_progressWidget.update(audioProgressPercentage);
 
-        m_fileSelectionWidget.update(m_songFiles.size(), m_activeSongIdx);
+        m_fileSelectionWidget.update(m_songFiles.size(), m_activeSongIdx[m_activeSongIdxIdx]);
 
         m_volumeWidget.update(m_currentVolume);
 
         m_sleepTimerWidget.update(m_sleepMode);
 
-        m_pauseSongWidget.update(m_audio.isRunning());
+        m_pauseSongWidget.update(m_audio->isRunning());
     }
 }
 
@@ -469,7 +585,7 @@ void CPlayer::updateVolume(int f_deltaVolume)
     }
 
     m_currentVolume = newVolume;
-    m_audio.setVolume(m_currentVolume);
+    m_audio->setVolume(m_currentVolume);
 }
 
 void CPlayer::increaseVolume()
@@ -499,11 +615,11 @@ void CPlayer::updateSpeaker()
     if (m_outputMode == 0) {
         // internal speaker enabled, mono
         M5.Axp.SetSpkEnable(true);
-        m_audio.forceMono(true);
+        m_audio->forceMono(true);
     } else {
         // internal speaker disabled, stereo (for external mode)
         M5.Axp.SetSpkEnable(false);
-        m_audio.forceMono(false);
+        m_audio->forceMono(false);
     }
 
     m_volumeWidget.setMode(m_outputMode);
@@ -528,6 +644,7 @@ void CPlayer::loadConfiguration(const char *filename)
 
     // Deserialize the JSON document
     DeserializationError error = deserializeJson(doc, file);
+    //DeserializationError error = deserializeMsgPack(doc, file);
     if (error)
         Serial.println(F("Failed to read file, using default configuration"));
 
@@ -535,13 +652,20 @@ void CPlayer::loadConfiguration(const char *filename)
     if ((doc["sd_cardSize"] == SD.cardSize()) &&
         (doc["sd_totalBytes"] == SD.totalBytes()) &&
         (doc["sd_usedBytes"] == SD.usedBytes()) &&
-        (doc["m_songFiles.size"] == m_songFiles.size()))
+        (doc["m_songFiles.size"] == m_songFilesSize))
 	{
-        m_activeSongIdx = doc["m_activeSongIdx"] | m_activeSongIdx;
+        JsonArray arr = doc["m_activeSongIdx"].as<JsonArray>();
+        for (unsigned int i=0; i < 12; ++i) {
+            m_activeSongIdx[i] = arr[i] | m_activeSongIdx[i];
+        }
         // we do not restore volume as environmental conditions might have changed
 		// instead we use always a safe low default to protect user
         //m_currentVolume = doc["m_currentVolume"] | m_currentVolume;
     }
+
+    // Print values
+    serializeJsonPretty(doc, Serial);
+    Serial.println("");
 
     // Close the file (Curiously, File's destructor doesn't close the file)
     file.close();
@@ -562,65 +686,161 @@ void CPlayer::saveConfiguration(const char *filename)
     // Allocate a temporary JsonDocument
     // Don't forget to change the capacity to match your requirements.
     // Use arduinojson.org/assistant to compute the capacity.
-    StaticJsonDocument<256> doc;
+    StaticJsonDocument<512> doc;
 
     // Set the values in the document
-    doc["sd_cardSize"] = SD.cardSize();
+    doc["sd_cardSize"]   = SD.cardSize();
     doc["sd_totalBytes"] = SD.totalBytes();
-    doc["sd_usedBytes"] = SD.usedBytes();
-    doc["m_activeSongIdx"] = m_activeSongIdx;
+    doc["sd_usedBytes"]  = SD.usedBytes();
+    JsonArray arr = doc.createNestedArray("m_activeSongIdx");
+    for (unsigned int i=0; i < 12; ++i) {
+        arr.add(m_activeSongIdx[i]);
+    }
     doc["m_currentVolume"] = m_currentVolume;
-	doc["m_songFiles.size"] = m_songFiles.size();
-    //doc["..."] = m_audio.getAudioCurrentTime();  // (store current playing position)
+	doc["m_songFiles.size"] = m_songFilesSize;
+    //doc["..."] = m_audio->getAudioCurrentTime();  // (store current playing position)
 
     // Serialize JSON to file
     if (serializeJson(doc, file) == 0) {
+    //if (serializeMsgPack(doc, file) == 0) {
         Serial.println(F("Failed to write to file"));
     }
+
+#ifdef DEBUG
+    // Print values
+    serializeJsonPretty(doc, Serial);
+    Serial.println("");
+#endif
 
     // Close the file
     file.close();
 }
 
-void CPlayer::recordTEST() {  // see https://github.com/m5stack/M5Core2/blob/master/examples/Basics/record/record.ino
-    uint8_t microphonedata0[DATA_SIZE * 1];  // DATA_SIZE = 1024
+void CPlayer::rec_record(const char *filepath) {  // see https://github.com/m5stack/M5Core2/blob/master/examples/Basics/record/record.ino
+    M5.Lcd.fillCircle(280, 80, 10, TFT_DARKGREY);
+
+    m_audio->stopSong();
+
+    uint8_t microphonedata0[DATA_SIZE * 1];  // DATA_SIZE = 1024 (must be multiple of 2 as data actually is 16 bit!)
     int data_offset = 0;
 
-    SD.remove("/___aaa000.wav");
-	File file = SD.open("/___aaa000.wav", FILE_WRITE);
-    //vibrate();
-    M5.Spk.InitI2SSpeakOrMic(MODE_MIC);  // ISSUE: seem to mess-up ESP32-audioI2S settings! look at source to figure out how to enable mic w/o issues
+	File file = SD.open(filepath, FILE_WRITE);
+    file.seek(44);  // before 44 is the header that gets written in the end
+
+    M5.Spk.InitI2SSpeakOrMic(MODE_MIC);  // install mic i2s driver
+
+    M5.Lcd.fillCircle(280, 80, 10, TFT_RED);
+
     size_t byte_read;
     while (1) {
         i2s_read(Speak_I2S_NUMBER, (char *)(microphonedata0),
                  DATA_SIZE, &byte_read, (100 / portTICK_RATE_MS));
         file.write(microphonedata0, byte_read);
         data_offset += byte_read;
-        if (M5.Touch.ispressed() != true) break;
-//        if ((data_offset >= (1024 * 1024 * 100)) || (M5.Touch.ispressed() != true)) break;
+        if (M5.Touch.ispressed() != true) break;  // may be also limit max. file size...?
     }
+
+    M5.Lcd.fillCircle(280, 80, 10, TFT_DARKGREY);
+
+	writeWavHeader(file, data_offset/2);  // wav header 16bit=2byte samples (compatibility with other software)
+
     file.close();
-//    size_t bytes_written;
-    M5.Spk.InitI2SSpeakOrMic(MODE_SPK);
-//    i2s_write(Speak_I2S_NUMBER, microphonedata0, data_offset, &bytes_written,
-//              portMAX_DELAY);
-    m_audio.connecttoSD("/___aaa000.wav");
+
+    // need to re-install ESP32-audioI2S i2s driver, this is done in Audio class constructor
+    delete m_audio; // must do this if it already has been allocated memory!
+    m_audio = new Audio();
+// ALTERNATIVE: RESTART AND PLAY LAST SONG BY STORING ITS INDEX IN CONFIGURATION !!!
+// ACHTUNG MACHT EV. PROBLEME - EINZELNE BEFEHLE HERAUSNEHMEN...?!
+    initializeHardware();
+//    updateVolume(0);
+
+    M5.Lcd.fillCircle(280, 80, 10, TFT_BLACK);
 }
 
-void CPlayer::micTEST() {  // see https://github.com/m5stack/M5Core2/blob/master/examples/Basics/record/record.ino
-    //vibrate();
-    M5.Spk.InitI2SSpeakOrMic(MODE_MIC);  // ISSUE: seem to mess-up ESP32-audioI2S settings! look at source to figure out how to enable mic w/o issues
-    Serial.println("MIC");
+void CPlayer::rec_play(const char *filepath) {  // see https://github.com/m5stack/M5Core2/blob/master/examples/Basics/record/record.ino
+    m_audio->stopSong();
 
-    delay(3000);
+    uint8_t microphonedata0[DATA_SIZE * 1];  // DATA_SIZE = 1024 (must be multiple of 2 as data actually is 16 bit!)
+    int data_offset = 0;
+    uint32_t subChunk2Size = 0;
 
-    vibrate();
-    M5.Spk.InitI2SSpeakOrMic(MODE_SPK);
-    Serial.println("SPK");
+    File file = SD.open(filepath, FILE_READ);
 
-    // may be need to use ESP.restart(); and use Preferences library to store setting (non-volatile) or SPIFFS
-	// (https://community.m5stack.com/topic/1496/storing-settings-in-the-memory-of-the-core)
+    file.seek(40);  // subChunk2Size: == NumSamples * NumChannels * BitsPerSample/8  i.e. number of byte in the data.
+    file.read((uint8_t*)&subChunk2Size, 4);
+    data_offset = subChunk2Size;
 
+    file.seek(44);  // 44 byte header (ignored), followed by raw data (used)
+
+	Serial.println(file.size());
+
+    M5.Spk.InitI2SSpeakOrMic(MODE_SPK);  // install (low level) speaker i2s driver
+
+    size_t bytes_written;
+    while (data_offset > 0) {
+        file.read(microphonedata0, DATA_SIZE);
+        i2s_write(Speak_I2S_NUMBER, microphonedata0, DATA_SIZE, &bytes_written,
+                  portMAX_DELAY);
+        data_offset -= DATA_SIZE;
+    }
+    file.close();
+
+    // need to re-install ESP32-audioI2S i2s driver, this is done in Audio class constructor
+    delete m_audio; // must do this if it already has been allocated memory!
+    m_audio = new Audio();
+// ALTERNATIVE: RESTART AND ... (?)
+// ACHTUNG MACHT EV. PROBLEME - EINZELNE BEFEHLE HERAUSNEHMEN...?!
+    initializeHardware();
+//    updateVolume(0);
+}
+
+void CPlayer::writeWavHeader(File wavFile, uint32_t NumSamples) {  // see https://stackoverflow.com/questions/66484763/how-to-convert-analog-input-readings-from-arduino-to-wav-from-sketch and http://soundfile.sapp.org/doc/WaveFormat/
+    // alternative method to use enum; https://github.com/atomic14/esp32_sdcard_audio/blob/main/arduino-wav-sdcard/lib/wav_file/src/WAVFile.h
+
+    /// The first 4 byte of a wav file should be the characters "RIFF" */
+    uint8_t chunkID[4] = {'R', 'I', 'F', 'F'};
+    /// 36 + SubChunk2Size
+    uint32_t chunkSize = 36; // You Don't know this until you write your data but at a minimum it is 36 for an empty file
+    /// "should be characters "WAVE"
+    uint8_t format[4] = {'W', 'A', 'V', 'E'};
+    /// " This should be the letters "fmt ", note the space character
+    uint8_t subChunk1ID[4] = {'f', 'm', 't', ' '};
+    ///: For PCM == 16
+    uint32_t subChunk1Size = 16;
+    ///: For PCM this is 1, other values indicate compression
+    uint16_t audioFormat = 1;
+    ///: Mono = 1, Stereo = 2, etc.
+    uint16_t numChannels = 1;
+    ///: Sample Rate of file
+    uint32_t sampleRate = 44100;
+    ///: SampleRate * NumChannels * BitsPerSample/8
+    uint32_t byteRate = 44100 * 1 * 2;
+    ///: The number of byte for one frame NumChannels * BitsPerSample/8
+    uint16_t blockAlign = 1 * 2;
+    ///: 8 bits = 8, 16 bits = 16
+    uint16_t bitsPerSample = 16;    // i2s driver in 'InitI2SSpeakOrMic' uses I2S_BITS_PER_SAMPLE_16BIT "// Fixed 12-bit stereo MSB."
+    ///: Contains the letters "data"
+    uint8_t subChunk2ID[4] = {'d', 'a', 't', 'a'};
+    ///: == NumSamples * NumChannels * BitsPerSample/8  i.e. number of byte in the data.
+    uint32_t subChunk2Size = 0; // You Don't know this until you write your data
+
+    subChunk2Size = NumSamples * numChannels * bitsPerSample/8;
+    chunkSize = 36 + subChunk2Size;
+
+    wavFile.seek(0);
+    wavFile.write(chunkID,4);
+    wavFile.write((uint8_t*)&chunkSize,4);
+    wavFile.write(format,4);
+    wavFile.write(subChunk1ID,4);
+    wavFile.write((uint8_t*)&subChunk1Size,4);
+    wavFile.write((uint8_t*)&audioFormat,2);
+    wavFile.write((uint8_t*)&numChannels,2);
+    wavFile.write((uint8_t*)&sampleRate,4);
+    wavFile.write((uint8_t*)&byteRate,4);
+    wavFile.write((uint8_t*)&blockAlign,2);
+    wavFile.write((uint8_t*)&bitsPerSample,2);
+    wavFile.write(subChunk2ID,4);
+    wavFile.write((uint8_t*)&subChunk2Size,4);
 }
 
 }  // namespace singsang

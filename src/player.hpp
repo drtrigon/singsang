@@ -63,24 +63,28 @@ private:
     void handleTouchEvents();
     void initializeGui();
     void initializeHardware();
-	void appendSDDirectory(File dir);
+	void appendSDDirectory(File dir, const bool list_dir);
     void populateMusicFileList();
     void updateGui();
     void vibrate();
     void loadConfiguration(const char *filename);
     void saveConfiguration(const char *filename);
-	void recordTEST();
-	void micTEST();
+    void rec_record(const char *filepath);
+    void rec_play(const char *filepath);
+    void writeWavHeader(File wavFile, uint32_t NumSamples);
 
-    Audio m_audio{};
+    Audio* m_audio = new Audio();
 
     CRGB leds[10];
 
     int                 m_currentVolume{8};
-    int                 m_activeSongIdx{0};
+    int                 m_activeSongIdx[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};  // set all items to 0 - one item per playlist
+    unsigned int        m_activeSongIdxIdx{11};     // defaults to "/" (all) playlist
     unsigned int        m_turnOffAfterInactiveForMilliSec{5 * 60 * 1000};
     unsigned int        m_lastActivityTimestamp{0};
     std::vector<String> m_songFiles{};
+    std::vector<String> m_songDirs{};
+    unsigned int        m_songFilesSize{0};
     bool                m_isRunning{true};
     unsigned int        m_sleepMode{0};
     unsigned int        m_outputMode{0};
@@ -94,7 +98,9 @@ private:
     CVolumeWidget        m_volumeWidget;
     CSleepTimerWidget    m_sleepTimerWidget;
 
-    unsigned int ui_PageNumber{0};  // 0=player (default), 1=color wheel, 2=display off, (3=settings e.g. speaker off, auto off, etc.)
+    unsigned int ui_PageNumber{0};  // 0=player (default), 1=playlists/hörbert, 2=record, 3=color wheel, 4=display off, (5=settings e.g. speaker off, auto off, etc., ?=file/directory browser or include into hörbert mode)
+
+    const uint32_t m_colors[12] = {TFT_MAROON, TFT_PURPLE, TFT_LIGHTGREY, TFT_BLUE, TFT_GREEN, TFT_YELLOW, TFT_ORANGE, TFT_PINK, TFT_CYAN, TFT_RED, TFT_MAGENTA, TFT_WHITE};
 
     CColorWheelWidget c_ColorWheelWidget;
 };
