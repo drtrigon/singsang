@@ -74,7 +74,7 @@ void CPlayer::populateMusicFileList()
             const bool entryIsFile = (entry.size() > 0);
             if (entryIsFile)
             {
-                m_songFiles.push_back(entry.name());
+                m_songFiles.push_back(entry.path());
             }
 
             entry.close();
