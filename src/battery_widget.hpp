@@ -14,7 +14,8 @@ public:
     {
         String newIconPath{m_currentIconPath};
 
-        const bool isCharging = (M5.Axp.GetVinVoltage() > 3.F);
+        //const bool isCharging = (M5.Axp.GetVinVoltage() > 3.F);
+        const bool isCharging = M5.Axp.isCharging();
         if (isCharging)
         {
             newIconPath = "/icon-battery-charging.png";

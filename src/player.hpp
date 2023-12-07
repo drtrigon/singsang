@@ -22,6 +22,7 @@
 #include "progress_widget.hpp"
 #include "volume_widget.hpp"
 #include "sleep_timer_widget.hpp"
+#include "color_wheel_widget.hpp"
 
 #define RCA_MODULE
 #define M5GO_BOTTOM
@@ -69,6 +70,7 @@ private:
     void loadConfiguration(const char *filename);
     void saveConfiguration(const char *filename);
 	void recordTEST();
+	void micTEST();
 
     Audio m_audio{};
 
@@ -91,6 +93,10 @@ private:
     CProgressWidget      m_progressWidget;
     CVolumeWidget        m_volumeWidget;
     CSleepTimerWidget    m_sleepTimerWidget;
+
+    unsigned int ui_PageNumber{0};  // 0=player (default), 1=color wheel, 2=display off, (3=settings e.g. speaker off, auto off, etc.)
+
+    CColorWheelWidget c_ColorWheelWidget;
 };
 
 }  // namespace singsang
