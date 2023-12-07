@@ -14,7 +14,7 @@ public:
 
     void draw(const bool f_updateOnly)
     {
-        M5.Lcd.drawPngFile(SPIFFS, "/icon-track-next.png", m_positionX,
+        M5.Lcd.drawPngFile(SPIFFS, "/player-track-next.png", m_positionX,
                            m_positionY, m_sizeX, m_sizeY);
     }
 };

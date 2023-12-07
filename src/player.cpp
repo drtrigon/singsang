@@ -25,13 +25,12 @@ void CPlayer::loop()
     handleInactivityTimeout();
 
     // skip non-playable files
-    if (m_isRunning) {
-        if (!m_audio.isRunning()) {  // not playing e.g. due to not supported file format (hacky work-a-round)
-		    startNextSong();
-        }
+    if (m_isRunning && (!m_audio.isRunning())) {  // not playing e.g. due to not supported file format (hacky work-a-round)
+// repeat could be done here by a simple --m_activeSongIdx
+        startNextSong();
     }
 
-    // sleep fade-out timer (linear volume decrease, 1 step every 5 mins)
+    // sleep fade-out timer (linear volume decrease; 1 step every 5 mins)
     if (m_sleepMode) {
         if ((millis() - m_sleepMode) >= (5 * 60 * 1000)) {
 			decreaseVolume();
@@ -79,7 +78,14 @@ void CPlayer::initializeGui()
     M5.Lcd.fillScreen(TFT_BLACK);
     M5.Lcd.setTextFont(2);
 
-    M5.Lcd.drawJpgFile(SPIFFS, "/logo.jpg", 60, 20, 200, 200);
+    if (SD.exists("/logo.jpg"))
+    {
+        M5.Lcd.drawJpgFile(SD, "/logo.jpg", 60, 20, 200, 200);
+    }
+    else
+    {
+        M5.Lcd.drawJpgFile(SPIFFS, "/logo.jpg", 60, 20, 200, 200);
+    }
 
     m_batteryWidget.draw(false);
     m_fileSelectionWidget.draw(false);
@@ -88,6 +94,7 @@ void CPlayer::initializeGui()
     m_pauseSongWidget.draw(false);
     m_progressWidget.draw(false);
     m_volumeWidget.draw(false);
+    m_sleepTimerWidget.draw(false);
 }
 
 void CPlayer::appendSDDirectory(File dir)
@@ -154,6 +161,12 @@ void CPlayer::handleInactivityTimeout()
 
 void CPlayer::handleTouchEvents()
 {
+/*    if (m_sleepMode)
+    {
+        // consider locking the UI completely (except for reset) in order to be "baby/children-proof"
+        return;
+    }*/
+
     const auto touchPoint = M5.Touch.getPressPoint();
 
     //Serial.print(M5.BtnA.read());
@@ -201,8 +214,15 @@ void CPlayer::handleTouchEvents()
         setPosSong(m_progressWidget.getPosition(touchPoint));
     }
 
+    if (m_sleepTimerWidget.isTouched(touchPoint))
+    {
+        vibrate();
+        toggleSleepTimer();
+    }
+
     if (touchPoint.y >= 250)  // "capacitive" Buttons A, B, C below display
     {
+		// actually you can set-up any number of buttons, e.g. 5 or more)
         if ((0 <= touchPoint.x) && (touchPoint.x <= 100))         // BtnA
         {
             Serial.println("M5.BtnA");
@@ -211,7 +231,6 @@ void CPlayer::handleTouchEvents()
         else if ((105 <= touchPoint.x) && (touchPoint.x <= 205))  // BtnB
         {
             Serial.println("M5.BtnB");
-//            m_sleepMode = millis();  // enable sleep mode (disable with m_sleepMode=0)
         }
         else if ((210 <= touchPoint.x) && (touchPoint.x <= 310))  // BtnC
         {
@@ -294,6 +313,10 @@ void CPlayer::updateGui()
     m_fileSelectionWidget.update(m_songFiles.size(), m_activeSongIdx);
 
     m_volumeWidget.update(m_currentVolume);
+
+    m_sleepTimerWidget.update(m_sleepMode);
+
+    m_pauseSongWidget.update(m_audio.isRunning());
 }
 
 void CPlayer::updateVolume(int f_deltaVolume)
@@ -326,6 +349,18 @@ void CPlayer::decreaseVolume()
     updateVolume(-2);
 }
 
+void CPlayer::toggleSleepTimer()
+{
+    if (m_sleepMode)
+    {
+        m_sleepMode = 0;  // disable sleep mode
+    }
+    else
+    {
+        m_sleepMode = millis();  // enable sleep mode
+    }
+}
+
 void CPlayer::vibrate()
 {
     M5.Axp.SetLDOEnable(3, true);
@@ -351,7 +386,8 @@ void CPlayer::loadConfiguration(const char *filename)
     // Copy values from the JsonDocument to the Config
     if ((doc["sd_cardSize"] == SD.cardSize()) &&
         (doc["sd_totalBytes"] == SD.totalBytes()) &&
-        (doc["sd_usedBytes"] == SD.usedBytes()))
+        (doc["sd_usedBytes"] == SD.usedBytes()) &&
+        (doc["m_songFiles.size"] == m_songFiles.size()))
 	{
         m_activeSongIdx = doc["m_activeSongIdx"] | m_activeSongIdx;
         // we do not restore volume as environmental conditions might have changed
@@ -386,6 +422,7 @@ void CPlayer::saveConfiguration(const char *filename)
     doc["sd_usedBytes"] = SD.usedBytes();
     doc["m_activeSongIdx"] = m_activeSongIdx;
     doc["m_currentVolume"] = m_currentVolume;
+	doc["m_songFiles.size"] = m_songFiles.size();
     //doc["..."] = m_audio.getAudioCurrentTime();  // (store current playing position)
 
     // Serialize JSON to file

@@ -19,8 +19,9 @@
 #include "pause_song_widget.hpp"
 #include "progress_widget.hpp"
 #include "volume_widget.hpp"
+#include "sleep_timer_widget.hpp"
 
-//#define FORCE_MONO
+#define FORCE_MONO
 
 namespace singsang
 {
@@ -48,6 +49,8 @@ public:
     void increaseVolume();
 
     void decreaseVolume();
+
+    void toggleSleepTimer();
 
 private:
     void handleInactivityTimeout();
@@ -79,6 +82,7 @@ private:
     CPauseSongWidget     m_pauseSongWidget;
     CProgressWidget      m_progressWidget;
     CVolumeWidget        m_volumeWidget;
+    CSleepTimerWidget    m_sleepTimerWidget;
 };
 
 }  // namespace singsang
