@@ -38,5 +38,6 @@ The simple GUI is specifically designed for children, who are able to choose a s
 ## Credit
 This project uses the [M5Core2](https://github.com/m5stack/M5Core2) library to access peripherals and [ESP32-audioI2S](https://github.com/schreibfaul1/ESP32-audioI2S) for high quality audio replay.
 The beautiful [Giraffe](https://publicdomainvectors.org/en/free-clipart/Cartoon-giraffe-image/49785.html) logo is taken from publicdomainvectors.org. The buttons are based on the [Tabler](https://github.com/tabler/tabler-icons) icon set. 
+Text-to-speech synthesis using [ttsfree.com](https://ttsfree.com/text-to-speech/german).
 
 

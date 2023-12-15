@@ -106,6 +106,12 @@ void CPlayer::initializeHardware()
     // RCA Module 13.2 (can be used at same time)
     m_audio->setPinout(19, 0, 2);  // I2S_BCLK, I2S_LRC, I2S_DOUT
 #endif
+    // prevent clic-noise when setting volume after init of audio lib (work-a-round)
+    m_audio->setVolume(0);
+    m_audio->connecttoFS(SPIFFS, "audio-battery.mp3");  // any file available can be used
+    for (uint8_t i = 0; i < 100; ++i)  // 50 iterations should be enough, take x2
+        m_audio->loop();
+    m_audio->stopSong();
     m_audio->setVolume(m_currentVolume);
 
     vibrate();
@@ -429,9 +435,7 @@ void CPlayer::handleTouchEvents()
                 vibrate();
                 m_songFiles.push_back(rec_name);
                 m_activeSongIdx[m_activeSongIdxIdx] = m_songFiles.size() - 2;
-//                m_audio->setVolume(0);
                 startNextSong();
-//                m_audio->setVolume(m_currentVolume);
             }
         }
         else if ((105 <= touchPoint.x) && (touchPoint.x <= 205))  // BtnB
@@ -746,15 +750,19 @@ void CPlayer::rec_record(const char *filepath) {  // see https://github.com/m5st
 
     uint16_t microphonedata0[DATA_SIZE/2 * 1];  // DATA_SIZE = 1024 (must be multiple of 2 as data actually is 16 bit!)
     int data_offset = 0;
+    size_t byte_read;
 
 	File file = SD.open(filepath, FILE_WRITE);
     file.seek(44);  // before 44 is the header that gets written in the end
 
     M5.Spk.InitI2SSpeakOrMic(MODE_MIC);  // install mic i2s driver
 
+    // supress clic-noise in recorded file, by skipping some data (1 buffer)
+    i2s_read(Speak_I2S_NUMBER, (char *)(microphonedata0),
+             DATA_SIZE, &byte_read, (100 / portTICK_RATE_MS));
+
     M5.Lcd.fillCircle(280, 80, 10, TFT_RED);
 
-    size_t byte_read;
     while (1) {
         i2s_read(Speak_I2S_NUMBER, (char *)(microphonedata0),
                  DATA_SIZE, &byte_read, (100 / portTICK_RATE_MS));
@@ -777,7 +785,6 @@ void CPlayer::rec_record(const char *filepath) {  // see https://github.com/m5st
 // ALTERNATIVE: RESTART AND PLAY LAST SONG BY STORING ITS INDEX IN CONFIGURATION !!!
 // ACHTUNG MACHT EV. PROBLEME - EINZELNE BEFEHLE HERAUSNEHMEN...?!
     initializeHardware();
-//    updateVolume(0);
 
     M5.Lcd.fillCircle(280, 80, 10, TFT_BLACK);
 }

@@ -194,8 +194,7 @@ changes: * improve handling of empty playlists/folders
              * https://forum.arduino.cc/t/runtime-remove-and-insert-a-sd-card/313386
              * https://github.com/greiman/SdFat
 
-
-(--- new v12 ---)
+--- new v12 ---
 changes: * add gain by bit shifting for recorded data (4x)
            ! suppress initial click by ommitting first few millisecs or everything until amplitude below given threshold
          * voice messsage during startup if battery level is low
@@ -208,24 +207,28 @@ changes: * add gain by bit shifting for recorded data (4x)
            ! may be add beeps by using sequence (see rec_play); pause, i2s_write(sin(...)), resume (do not change i2s config)
            ! may be colorize battery icons (low; red / ok; green / may be intermediate; yellow/orange)
            ! may be add battery level message to startNextSong(), startPrevSong() before playback (how to loop()?)
+         * prevent clic-noise in beginning of playback
+           ! issue bug report upstream
+             * first playback after init of class (call of constructor)
+             * may be similar like https://github.com/earlephilhower/ESP8266Audio/issues/406
+           ! may be check whether this is hardware dependend; may be just internal speaker affected and line out of RCA module not
+           ! may be check wheteher use mic at same time as playback, could avoid i2s re-config and thus clic-noise
+             * see https://github.com/schreibfaul1/ESP32-audioI2S/discussions/604
+             * problem is there is i2s config we don't have control of
+           ! may be use i2s_write(...) with a zero buffer instead of connect, loop and stop playing
+         * prevent clic-noise in beginning of recorded file by skipping some data
 
 
 (--- new v13 ---)
 
 
-problem: knacken bei replay des ersten titels nach i2s driver install...?
--> immer erstes playback nach 'new Audio()'
--> 'updateVolume' nach 'initializeHardware' macht es schlimmer...?
--> https://github.com/earlephilhower/ESP8266Audio/issues/406
--> volume auf 0, dann wieder auf vorherigen wert setzen während start von playback...?
-
-use mic at same time as playback, could also avoid i2s re-config and thus "knacken" (siehe oben)
--> https://github.com/schreibfaul1/ESP32-audioI2S/discussions/604
+ev. record und sleep-mode buttons tauschen?!
 
 
 versuchen espuino auf m5core2 zu portieren und dann dieses GUI inkl. nachtlicht zu mergen
 
 send to bluetooth speaker (sink) - is it also possible to send to multiple, say 2, 3, ... (more?) - also add simple menu for pairing
+how to get (raw) data from esp32-audioi2s?
 
 build 3D case to print (incl. speaker)
 
