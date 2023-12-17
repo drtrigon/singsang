@@ -208,7 +208,7 @@ changes: * add gain by bit shifting for recorded data (4x)
            ! may be colorize battery icons (low; red / ok; green / may be intermediate; yellow/orange)
            ! may be add battery level message to startNextSong(), startPrevSong() before playback (how to loop()?)
          * prevent clic-noise in beginning of playback
-           ! issue bug report upstream
+           ! bug report upstream; https://github.com/schreibfaul1/ESP32-audioI2S/issues/626
              * first playback after init of class (call of constructor)
              * may be similar like https://github.com/earlephilhower/ESP8266Audio/issues/406
            ! may be check whether this is hardware dependend; may be just internal speaker affected and line out of RCA module not
@@ -219,7 +219,9 @@ changes: * add gain by bit shifting for recorded data (4x)
          * prevent clic-noise in beginning of recorded file by skipping some data
 
 
-(--- new v13 ---)
+(--- newer ---)
+(...)
+(use: $ git log)
 
 
 ev. record und sleep-mode buttons tauschen?!
@@ -291,7 +293,6 @@ https://www.galaxus.ch/de/s1/product/ugreen-bluetooth-50-aux-car-adapter-bluetoo
 (https://www.galaxus.de/en/s4/product/blow-transmitter-bluetooth-car-stereo-accessories-21251146)
 
 
-put on github as fork
 optimize flash usage e.g. use more F(...) etc.
 
 (may be fork and build webradio, see https://github.com/bwbguard/M5Stack-Core2-MediaPlayer, ESP32-audioI2S examples, https://m5stack.hackster.io/tommyho/arduino-web-radio-player-c4cb23 -> Lea)

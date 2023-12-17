@@ -767,7 +767,7 @@ void CPlayer::rec_record(const char *filepath) {  // see https://github.com/m5st
         i2s_read(Speak_I2S_NUMBER, (char *)(microphonedata0),
                  DATA_SIZE, &byte_read, (100 / portTICK_RATE_MS));
         for (unsigned int i=0; i<(DATA_SIZE/2); ++i)  // apply gain
-            microphonedata0[i] <<= 2;                 // gain x4 (2 bits)
+            microphonedata0[i] <<= 1;                 // gain x2 (1 bits)
         file.write((uint8_t*)microphonedata0, byte_read);  // may be use union instead of cast
         data_offset += byte_read;
         if (M5.Touch.ispressed() != true) break;  // may be also limit max. file size...?
