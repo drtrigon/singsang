@@ -234,43 +234,6 @@ how to get (raw) data from esp32-audioi2s?
 
 build 3D case to print (incl. speaker)
 
-(  USB Module with MAX3421E
-  $13.95)
-(  https://stackoverflow.com/questions/50429714/how-to-read-a-flash-drive-with-the-max3421e-usb-host-module-built-in-an-arduino )
-
-  Bluetooth Amplifier DIY Kit, Home Stero Sound Amplifier Kits, DIY Speaker with Flash Light
-  https://www.tindie.com/products/icstation/diy-kit-bluetooth-speaker-with-led-flashing-light/
-  Sold By ICStation
-  $20.23
-
-  DIY Kit FM Radio Bluetooth Amplifier, LED Spectrum Bluetooth Audio Speaker 3W+3W, U-disk SD Card Music Player Remote Control
-  https://www.tindie.com/products/icstation/diy-kit-led-spectrum-fm-radio-bluetooth-amplifier/
-  Sold By ICStation
-  $21.99
-
-  weitere: https://www.tindie.com/products/icstation/diy-bluetooth-music-spectrum-speaker-kit-gy19288/
-           https://www.tindie.com/products/icstation/diy-bluetooth-speakers-audio-amplifier-kit/  (mono)
-
-  PAM8620 Power Amplifier Module. 15Wx2 Dual-channel Stereo Amplifier. DC 8V-26V Class D Digital Power Amplifier Board .Item ID: GY19183
-  https://www.tindie.com/products/icstation/pam8620-class-d-power-amplifier-15wx2-gy19183/
-  Sold By ICStation
-  $15.83
-
-  Fermion 3W Mini Audio Stereo Verstärker
-  https://www.bastelgarage.ch/fermion-3w-mini-audio-stereo-verstarker
-  Hersteller: DFRobot
-  Artikelnr.:  421925
-  8,90CHF
-
-  Lautsprecher 4Ohm 3W 50mm
-  https://www.bastelgarage.ch/lautsprecher-4ohm-3w-50mm
-  Hersteller: purecrea
-  Artikelnr.:  420549
-  11,00CHF
-
-  Sennheiser Kopfhörer funktionieren gut ohne Amp.: Android / Sennheiser Impedance: 32-54 Ohm
-  (Impedance von Kopfhörern hier messen! Was sind Werte und wie gut funktinieren sie?)
-  (mit I2S DAC chip datenblatt abgleichen, was Grenze sein könnte)
 
 (bluetooth...? source or sink or both?)
 (sink (speaker): https://github.com/un01s/m5speaker with fft https://github.com/ElectroMagus/M5-FFT and https://github.com/schreibfaul1/ESP32-audioI2S/issues/80)
@@ -285,40 +248,13 @@ build 3D case to print (incl. speaker)
 (  https://github.com/tueddy/BTSourceSD/blob/main/BTSourceSD.ino)
 (  https://github.com/tueddy/ESPuino/commit/61666ee3dcbc6a808503b7cab33b2949e794407a)
 (    https://github.com/biologist79/ESPuino/blob/master/src/AudioPlayer.cpp#L1217 resp. https://github.com/biologist79/ESPuino/blob/master/src/AudioPlayer.cpp#L1245 see "audio_process_i2s")
-(IN WORST CASE RESTART INTO BLUETOOTH MODE - SAME AS MIC AND SPEAKER CHANGE - AT LEAST 3 MODES; deafult player, mic, bluetooth ?)
-
-https://www.galaxus.ch/de/s1/product/ugreen-cm403-sender-empfaenger-bluetooth-audio-adapter-21139173
-https://www.galaxus.ch/de/s1/product/reach-bluetooth-adapteris-2-in-1-transmitter-receiver-bluetooth-audio-adapter-35870262
-https://www.galaxus.ch/de/s1/product/ugreen-bluetooth-50-aux-car-adapter-bluetooth-audio-adapter-20685838
-(https://www.galaxus.de/en/s4/product/blow-transmitter-bluetooth-car-stereo-accessories-21251146)
+(IN WORST CASE RESTART INTO BLUETOOTH MODE - SAME AS MIC AND SPEAKER CHANGE - AT LEAST 3 MODES; default player, mic, bluetooth ?)
 
 
 optimize flash usage e.g. use more F(...) etc.
 
 (may be fork and build webradio, see https://github.com/bwbguard/M5Stack-Core2-MediaPlayer, ESP32-audioI2S examples, https://m5stack.hackster.io/tommyho/arduino-web-radio-player-c4cb23 -> Lea)
 (see https://github.com/schreibfaul1/ESP32-audioI2S/blob/master/examples/Simple_WiFi_Radio/Simple_WiFi_Radio_IR.ino)
-
-
-
-USB Module with MAX3421E
-SKU: M020
-$13.95
-https://shop.m5stack.com/products/usb-module
-
-Battery Module 13.2 (1500mAh)
-SKU: M120
-$10.50
-https://shop.m5stack.com/products/battery-module-13-2-1500mah
-
-Base AAA Battery Holder
-SKU: A122
-$8.50
-https://shop.m5stack.com/products/base-aaa-battery-holder
-
-Proto Module with Extension & Bus Socket
-SKU: M001
-$4.50
-https://shop.m5stack.com/products/proto-module
 
 
 --- similar projects ---
@@ -345,3 +281,63 @@ Phoniebox: https://phoniebox.de/
   -> M5Tube uses sequences of JPEG files MJPEG along with sound, this means all vids have to be converted to MJPEG first
      and will be played a low framerate, 25-30 fps is possible at max needing some perfomance optimisations
   -> not very attractive as it does not support common formats
+
+- power supply? can use one Base only; either M5GO BOTTOM2 module - OR - AAA Battery Holder module
+  -> Battery Module is integrated into M5GO BOTTOM2 already
+  -> Base AAA Battery Holder
+     SKU: A122
+     $8.50
+     https://shop.m5stack.com/products/base-aaa-battery-holder
+  -> Battery Module 13.2 (1500mAh)
+     SKU: M120
+     $10.50
+     https://shop.m5stack.com/products/battery-module-13-2-1500mah
+
+- add USB port? currently the USB Module has to be modified to be compatible with Core2
+  -> USB Module with MAX3421E
+     SKU: M020
+     $13.95
+     https://shop.m5stack.com/products/usb-module
+     ATTENTION: "Core2 and CoreS3 are not compatible with this product. If used with Core2, please cut the EN pin of MBus."
+     ( https://stackoverflow.com/questions/50429714/how-to-read-a-flash-drive-with-the-max3421e-usb-host-module-built-in-an-arduino )
+
+- add (external) amplifier? not needed when using bluetooth (hardware or software) or high impedance headphones (~50ohms) or active speakers (with amp.)
+  -> Sennheiser Kopfhörer funktionieren gut ohne Amp.: Android / Sennheiser Impedance: 32-54 Ohm
+     (Impedance von Kopfhörern hier messen! Was sind Werte und wie gut funktionieren sie?)
+     (mit I2S DAC chip datenblatt abgleichen, was Grenze sein könnte)
+  -> bluetooth hardware
+    -> Ugreen CM403
+       Sender & Empfänger
+       CHF 18.70
+       https://www.galaxus.ch/de/s1/product/ugreen-cm403-sender-empfaenger-bluetooth-audio-adapter-21139173
+    -> Bluetooth Amplifier DIY Kit, Home Stero Sound Amplifier Kits, DIY Speaker with Flash Light
+       https://www.tindie.com/products/icstation/diy-kit-bluetooth-speaker-with-led-flashing-light/
+       Sold By ICStation
+       $20.23
+    -> DIY Kit FM Radio Bluetooth Amplifier, LED Spectrum Bluetooth Audio Speaker 3W+3W, U-disk SD Card Music Player Remote Control
+       https://www.tindie.com/products/icstation/diy-kit-led-spectrum-fm-radio-bluetooth-amplifier/
+       Sold By ICStation
+       $21.99
+    -> weitere: https://www.galaxus.ch/de/s1/product/reach-bluetooth-adapteris-2-in-1-transmitter-receiver-bluetooth-audio-adapter-35870262
+                https://www.galaxus.ch/de/s1/product/ugreen-bluetooth-50-aux-car-adapter-bluetooth-audio-adapter-20685838
+                (https://www.galaxus.de/en/s4/product/blow-transmitter-bluetooth-car-stereo-accessories-21251146)
+                https://www.tindie.com/products/icstation/diy-bluetooth-music-spectrum-speaker-kit-gy19288/
+                https://www.tindie.com/products/icstation/diy-bluetooth-speakers-audio-amplifier-kit/  (mono)
+  -> Proto Module with Extension & Bus Socket
+     SKU: M001
+     $4.50
+     https://shop.m5stack.com/products/proto-module
+    -> PAM8620 Power Amplifier Module. 15Wx2 Dual-channel Stereo Amplifier. DC 8V-26V Class D Digital Power Amplifier Board .Item ID: GY19183
+       https://www.tindie.com/products/icstation/pam8620-class-d-power-amplifier-15wx2-gy19183/
+       Sold By ICStation
+       $15.83
+    -> Fermion 3W Mini Audio Stereo Verstärker
+       https://www.bastelgarage.ch/fermion-3w-mini-audio-stereo-verstarker
+       Hersteller: DFRobot
+       Artikelnr.:  421925
+       8,90CHF
+    -> Lautsprecher 4Ohm 3W 50mm
+       https://www.bastelgarage.ch/lautsprecher-4ohm-3w-50mm
+       Hersteller: purecrea
+       Artikelnr.:  420549
+       11,00CHF
