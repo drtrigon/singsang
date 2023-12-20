@@ -19,7 +19,7 @@ The simple GUI is specifically designed for children, who are able to choose a s
 - [x] External stereo output mode for RCA Module 13.2 (can be selected using volume widget)
 - [x] Support for M5GO Bottom RGB LED's to be used as night light (or just for fun)
 - [x] Reduce pops & clicks in beginning of playback and recordings
-- [ ] Always use safe low default volume
+- [x] Always use safe low default volume
 - [ ] Use RGB leds as volume indicator (for parents) or spectrum/FFT
 - [ ] Support bluetooth output to headphones or speakers
 
