@@ -122,7 +122,8 @@ void CPlayer::initializeGui()
     M5.Lcd.fillScreen(TFT_BLACK);
     M5.Lcd.setTextFont(2);
     M5.Axp.SetDCDC3(true);  // backlight on (actually hardware not software init)
-  
+    //M5.Lcd.wakeup();  //Restore display from energy saving mode
+
     switch(ui_PageNumber) {
       case 1:
         // playlists/hörbert
@@ -133,6 +134,7 @@ void CPlayer::initializeGui()
         }
         M5.Lcd.fillRoundRect(2 * 80, 2 * 80, 80, 80, 10, m_colors[10]);  // "/rec"
         M5.Lcd.fillRoundRect(3 * 80, 2 * 80, 80, 80, 10, m_colors[11]);  // "/" (all)
+		M5.Lcd.fillCircle((m_activeSongIdxIdx % 4) * 80 + 15, (m_activeSongIdxIdx / 4) * 80 + 15, 10, M5.Lcd.color565(100, 100, 100));
 		break;
 
       /*case 2:
@@ -148,6 +150,7 @@ void CPlayer::initializeGui()
       case 4:
         // display off / lock
 
+        //M5.Lcd.sleep();    //Switch to sleep mode
         M5.Axp.SetDCDC3(false);  // backlight off
 		break;
 
