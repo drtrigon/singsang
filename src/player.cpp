@@ -166,6 +166,8 @@ void CPlayer::initializeGui()
             M5.Lcd.drawJpgFile(SPIFFS, "/logo.jpg", 60, 20, 200, 200);
         }
 
+        m_fileSelectionWidget.setColor(m_colors[m_activeSongIdxIdx]);
+
         m_batteryWidget.draw(false);
         m_fileSelectionWidget.draw(false);
         m_nextSongWidget.draw(false);
@@ -445,7 +447,7 @@ void CPlayer::handleTouchEvents()
         {
             Serial.println("M5.BtnB");
             vibrate();   // also touch dead-time of 150ms
-//            delay(500);  // touch dead-time hack (stops playing)
+            delay(100);  // touch dead-time hack (stops playing)
         }
         else if ((210 <= touchPoint.x) && (touchPoint.x <= 310))  // BtnC
         {
@@ -456,7 +458,7 @@ void CPlayer::handleTouchEvents()
                 ++ui_PageNumber;     // "
             initializeGui();  // re-initialize the UI - hacky... also the switch cases...
             //delay(c_ColorWheelWidget.m_touchDeadTimeMilliSec);  // touch dead-time hack
-//            delay(500);  // touch dead-time hack (stops playing)
+            delay(100);  // touch dead-time hack (stops playing)
         }
     }
 

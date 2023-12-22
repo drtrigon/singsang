@@ -10,6 +10,11 @@ class CFileSelectionWidget : public CBaseWidget
 public:
     CFileSelectionWidget() : CBaseWidget(60, 10, 200, 10) {}
 
+    void setColor(const uint16_t col)
+    {
+        m_color = col;
+    }
+
     void update(const int f_newItemCount, const int f_newSelectedIndex)
     {
         if (f_newItemCount != m_itemCount ||
@@ -29,7 +34,7 @@ public:
         M5.Lcd.fillRect(m_positionX - radiusBig, m_positionY - m_sizeY,
                         m_sizeX + 2 * radiusBig + 1, 2 * m_sizeY, TFT_BLACK);
 
-        const uint16_t col = M5.Lcd.color565(100, 100, 100);
+        //const uint16_t col = M5.Lcd.color565(100, 100, 100);
 
         for (int k = 0; k < m_itemCount; k++)
         {
@@ -37,13 +42,14 @@ public:
                 m_positionX + ((float)k) * m_sizeX / (m_itemCount - 1);
             const int cy     = m_positionY;
             const int radius = (k == m_selectedIndex) ? radiusBig : radiusSmall;
-            M5.Lcd.fillCircle(cx, cy, radius, col);
+            M5.Lcd.fillCircle(cx, cy, radius, m_color);
         }
     }
 
 private:
     int m_itemCount{0};
     int m_selectedIndex{-1};
+	uint16_t m_color{M5.Lcd.color565(100, 100, 100)};
 };
 
 }  // namespace singsang
